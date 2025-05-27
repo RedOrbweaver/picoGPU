@@ -18,6 +18,10 @@ class PAL_DRIVER
     public:
     private:
     protected:
+
+    const float div = 15;
+    float line_div = 38.2353332;//9.5588331;
+
     RENDER_MODE mode;
     SAMPLING_MODE smode;
 
@@ -29,6 +33,15 @@ class PAL_DRIVER
     int samples_per_pixel;
     int send_buffer_size;
 
+    uint8_t long_sync[640] = {0};
+    uint8_t short_sync[640] = {0};
+
+    struct
+    {
+        uint8_t front_porch[32];
+        uint8_t line_sync[96] = {0};
+        uint8_t back_porch[112];
+    }fb = {0};
 
     pio_hw_t* pio;
     int sm;
@@ -174,48 +187,32 @@ class PAL_DRIVER
         mutex_exit(&non_blanking_mx);
     }
 
-    void Start()
+    void ShortSync(int n)
     {
-        const float div = 15;
-        const float line_div = 38.23/samples_per_pixel;//9.5588331;
-
-        dac_init();
-
-
-        struct
+        for(int i = 0; i < n; i++)
         {
-            uint8_t front_porch[32];
-            uint8_t line_sync[96] = {0};
-            uint8_t back_porch[112];
-        }fb = {0};
-        for(int i = 0; i < ArraySize(fb.front_porch); i++)
-        {
-            fb.front_porch[i] = black;
+            dac_send_array(short_sync, div);
         }
-        for(int i = 0; i < ArraySize(fb.back_porch); i++)
+    }
+    void LongSync(int n)
+    {
+        for(int i = 0; i < n; i++)
         {
-            fb.back_porch[i] = black;
+            dac_send_array(long_sync, div);
         }
+    }
 
-        uint8_t long_sync[640] = {0};
-        memset(long_sync, 0, ArraySize(long_sync));
-        memset(long_sync + 640 - 94 - 1, black, 94);
-        uint8_t short_sync[640] = {0};
-        memset(short_sync, black, ArraySize(short_sync));
-        memset(short_sync, zero, 48);
+    void LoopInterlaced()
+    {
         while(true)
         {
-            uint64_t tm = get_time_us();
+            uint64_t tm;
             uint64_t tmdif;
+
+            tm = get_time_us();
             
-            for(int i = 0; i < 5; i++)
-            {
-                dac_send_array(long_sync, div);
-            }
-            for(int i = 0; i < 5; i++)
-            {
-                dac_send_array(short_sync, div);
-            }
+            LongSync(5);
+            ShortSync(5);
             mutex_enter_blocking(&non_blanking_mx);
             ComputeSendBuffer(0);
             for(int i = 0; i < lines_y; i++)
@@ -228,10 +225,25 @@ class PAL_DRIVER
                     ComputeSendBuffer(i+1);
             }
             mutex_exit(&non_blanking_mx);
-            for(int i = 0; i < 6; i++)
+            ShortSync(5);
+            LongSync(5);
+            ShortSync(4);
+
+            mutex_enter_blocking(&non_blanking_mx);
+            ComputeSendBuffer(0);
+            for(int i = 0; i < lines_y; i++)
             {
-                dac_send_array(short_sync, div);
+                dac_write((uint8_t*)&fb, sizeof(fb), div);
+                
+                dac_write(send_buffer, send_buffer_size, line_div);
+
+
+                if(i != lines_y-1)
+                    ComputeSendBuffer(i+1);
             }
+            mutex_exit(&non_blanking_mx);
+
+            ShortSync(6);
             tmdif = (get_time_us()-tm);
             double rtm = double(tmdif) / 1000.0;
             float average = float(cmptm_tot) / float(lines_y);
@@ -239,6 +251,64 @@ class PAL_DRIVER
             cmptm_tot = 0;
             cmptm_max = 0;
         }
+    }
+
+    void LoopNonInterlaced()
+    {
+        while(true)
+        {
+            uint64_t tm;
+            uint64_t tmdif;
+
+            tm = get_time_us();
+            
+            LongSync(5);
+            ShortSync(5);
+            mutex_enter_blocking(&non_blanking_mx);
+            ComputeSendBuffer(0);
+            for(int i = 0; i < lines_y; i++)
+            {
+                dac_write((uint8_t*)&fb, sizeof(fb), div);
+                
+                dac_write(send_buffer, send_buffer_size, line_div);
+
+                if(i != lines_y-1)
+                    ComputeSendBuffer(i+1);
+            }
+            mutex_exit(&non_blanking_mx);
+            ShortSync(6);
+
+            tmdif = (get_time_us()-tm);
+            double rtm = double(tmdif) / 1000.0;
+            float average = float(cmptm_tot) / float(lines_y);
+            printf("%.4f %lli %lli %lli %.3f\n", rtm, cmptm, cmptm_max, cmptm_tot, average);
+            cmptm_tot = 0;
+            cmptm_max = 0;
+        }
+    }
+
+    void Start()
+    {
+
+        dac_init();
+
+
+        for(int i = 0; i < ArraySize(fb.front_porch); i++)
+        {
+            fb.front_porch[i] = black;
+        }
+        for(int i = 0; i < ArraySize(fb.back_porch); i++)
+        {
+            fb.back_porch[i] = black;
+        }
+
+        memset(long_sync, 0, ArraySize(long_sync));
+        memset(long_sync + 640 - 94 - 1, black, 94);
+        memset(short_sync, black, ArraySize(short_sync));
+        memset(short_sync, zero, 47);
+        
+
+        LoopNonInterlaced();
     }
 
     PAL_DRIVER(RENDER_MODE mode, SAMPLING_MODE smode)
@@ -290,5 +360,6 @@ class PAL_DRIVER
         }
         send_buffer_size = lines_x*samples_per_pixel;
         send_buffer = new uint8_t[send_buffer_size];
+        line_div /= samples_per_pixel;
     }
 };
