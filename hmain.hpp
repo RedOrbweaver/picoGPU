@@ -1,7 +1,14 @@
 #pragma once
 
 #include <stdio.h>
+#include <string>
+#include <vector>
+#include <map>
+#include <functional>
+
 #include "pico/stdlib.h"
+#include "pico/mutex.h"
+#include "pico/multicore.h"
 #include "hardware/spi.h"
 #include "hardware/i2c.h"
 #include "hardware/dma.h"
@@ -20,3 +27,6 @@ namespace PIN
 {
     uint8_t DAC_OUT[8] = {2, 3, 4, 5, 6, 7, 8, 9};
 }
+
+#include "shared.hpp"
+#include "PAL.hpp"

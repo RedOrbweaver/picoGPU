@@ -71,6 +71,7 @@ target_link_libraries(picoGPU
         hardware_watchdog
         hardware_clocks
         hardware_adc
+        pico_multicore
         )
 
 pico_add_extra_outputs(picoGPU)
