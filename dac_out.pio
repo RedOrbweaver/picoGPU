@@ -1,0 +1,4 @@
+.program dac_out
+.wrap_target
+out pins, 8
+.wrap
