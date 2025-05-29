@@ -24,6 +24,7 @@ class PAL_DRIVER
 
     RENDER_MODE mode;
     SAMPLING_MODE smode;
+    bool interlaced;
 
     uint8_t* front_buffer;
     uint8_t* back_buffer;
@@ -281,7 +282,7 @@ class PAL_DRIVER
             tmdif = (get_time_us()-tm);
             double rtm = double(tmdif) / 1000.0;
             float average = float(cmptm_tot) / float(lines_y);
-            printf("%.4f %lli %lli %lli %.3f\n", rtm, cmptm, cmptm_max, cmptm_tot, average);
+            //printf("%.4f %lli %lli %lli %.3f\n", rtm, cmptm, cmptm_max, cmptm_tot, average);
             cmptm_tot = 0;
             cmptm_max = 0;
         }
@@ -307,8 +308,10 @@ class PAL_DRIVER
         memset(short_sync, black, ArraySize(short_sync));
         memset(short_sync, zero, 47);
         
-
-        LoopNonInterlaced();
+        if(interlaced)
+            LoopInterlaced();
+        else
+            LoopNonInterlaced();
     }
 
     PAL_DRIVER(RENDER_MODE mode, SAMPLING_MODE smode)
@@ -329,6 +332,16 @@ class PAL_DRIVER
                 lines_y = 304;
                 front_buffer = new uint8_t[lines_x*lines_y];
                 back_buffer = new uint8_t[lines_x*lines_y];
+                interlaced = false;
+                break;
+            }
+            case BW_408_305_DOUBLE_BUF_INTERLACED:
+            {
+                lines_x = 408;
+                lines_y = 305;
+                front_buffer = new uint8_t[lines_x*lines_y];
+                back_buffer = new uint8_t[lines_x*lines_y];
+                interlaced = true;
                 break;
             }
             default:

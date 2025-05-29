@@ -66,6 +66,9 @@ int main()
     float px = 50.0f;
     float py = 50.0f;
     float r = 15.0f;
+
+
+    printf("Remaining memory: %i\n", GetFreeHeap());
     
 
     while(true)
@@ -75,13 +78,13 @@ int main()
 
         float nx = px + sx;
         float ny = py + sy;
-        if(nx < r || nx > float(lines_x)-r)
+        if(nx < r || nx > float(lines_x)-2*r)
         {
             sx = -sx;
         }
         else
             px = nx;
-        if(ny < r || ny > float(lines_y)-r)
+        if(ny < 2*r || ny > float(lines_y)-r)
         {
             sy = -sy;
         }
