@@ -29,4 +29,5 @@ namespace PIN
 }
 
 #include "shared.hpp"
+#include "picoGPU.hpp"
 #include "PAL.hpp"
