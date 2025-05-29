@@ -19,10 +19,7 @@ constexpr float LONG_SYNC_LOW_NS = LINE_NS - LONG_SYNC_HIGH_NS;
 
 constexpr float CLOCK_LEN_NS = 3.333333f;
 
-constexpr int black = 80;
-constexpr int zero = 0;
-
-#define dac_send_array(a, div) dac_write(a, ArraySize(a), div);
+#define dac_send_array(a, div) dac_write(a, ArraySize(a), div)
 
 class PAL_DRIVER
 {

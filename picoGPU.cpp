@@ -4,7 +4,7 @@ PAL_DRIVER* driver;
 
 int SQ(int v)
 {
-    return v * v;
+    return v * v; 
 }
 int distance(int x0, int y0, int x1, int y1)
 {
@@ -102,8 +102,8 @@ int main()
                     val = 255;
                 else
                 {
-                    float range = 255.0f-float(black);
-                    float fv = black + (float(ii)/float(lines_x))*range;
+                    float range = 255.0f;
+                    float fv = (float(ii)/float(lines_x))*range;
                     val = (uint8_t)fv;
                 }
                 video_data[i*lines_x + ii] = val;
