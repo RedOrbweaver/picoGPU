@@ -26,6 +26,7 @@
 namespace PIN
 {
     uint8_t DAC_OUT[8] = {2, 3, 4, 5, 6, 7, 8, 9};
+    uint8_t NOT_SYNC = 10;
 }
 
 #include "shared.hpp"

@@ -1,12 +1,23 @@
 #pragma once
 #include "hmain.hpp"
 
+constexpr float LINE_NS = 64000.0f;
+
 constexpr float BASE_PERIOD_NS = 3.3333f;
 constexpr float LINE_BLANKING_NS = 12500.0f;
 constexpr float LINE_SYNC_NS = 4700.0f;
 constexpr float FRONT_PORCH_NS = 1650.0f;
 constexpr float BACK_PORCH_NS = 5700.0f;
 constexpr float VISUAL_NS = 52000.0f;
+
+
+
+constexpr float SHORT_SYNC_LOW_NS = 2350.0f;
+constexpr float SHORT_SYNC_HIGH_NS = LINE_NS - SHORT_SYNC_LOW_NS;
+constexpr float LONG_SYNC_HIGH_NS = 4700.0f;
+constexpr float LONG_SYNC_LOW_NS = LINE_NS - LONG_SYNC_HIGH_NS;
+
+constexpr float CLOCK_LEN_NS = 3.333333f;
 
 constexpr int black = 80;
 constexpr int zero = 0;
@@ -20,7 +31,7 @@ class PAL_DRIVER
     protected:
 
     const float div = 15;
-    float line_div = 38.2353332;//9.5588331;
+    float line_div;//38.2353324?;
 
     RENDER_MODE mode;
     SAMPLING_MODE smode;
@@ -43,6 +54,8 @@ class PAL_DRIVER
         uint8_t line_sync[96] = {0};
         uint8_t back_porch[112];
     }fb = {0};
+
+    uint8_t zeroes[4] = {0};
 
     pio_hw_t* pio;
     int sm;
@@ -190,16 +203,26 @@ class PAL_DRIVER
 
     void ShortSync(int n)
     {
+        dac_send_array(zeroes, div);
         for(int i = 0; i < n; i++)
         {
-            dac_send_array(short_sync, div);
+            //dac_send_array(short_sync, div);
+            gpio_put(PIN::NOT_SYNC, 0);
+            busy_wait_at_least_cycles(SHORT_SYNC_LOW_NS/CLOCK_LEN_NS);
+            gpio_put(PIN::NOT_SYNC, 1);
+            busy_wait_at_least_cycles(SHORT_SYNC_HIGH_NS/CLOCK_LEN_NS);
         }
     }
     void LongSync(int n)
     {
+        dac_send_array(zeroes, div);
         for(int i = 0; i < n; i++)
         {
-            dac_send_array(long_sync, div);
+            //dac_send_array(long_sync, div);
+            gpio_put(PIN::NOT_SYNC, 0);
+            busy_wait_at_least_cycles(LONG_SYNC_LOW_NS/CLOCK_LEN_NS);
+            gpio_put(PIN::NOT_SYNC, 1);
+            busy_wait_at_least_cycles(LONG_SYNC_HIGH_NS/CLOCK_LEN_NS);
         }
     }
 
@@ -261,28 +284,56 @@ class PAL_DRIVER
             uint64_t tm;
             uint64_t tmdif;
 
-            tm = get_time_us();
             
+            tm = get_time_us();
+
             LongSync(5);
             ShortSync(5);
             mutex_enter_blocking(&non_blanking_mx);
             ComputeSendBuffer(0);
+            //dma_channel_wait_for_finish_blocking(dmachan);
             for(int i = 0; i < lines_y; i++)
             {
-                dac_write((uint8_t*)&fb, sizeof(fb), div);
+                //dac_write((uint8_t*)&fb, sizeof(fb), div);
+                
+
+                dac_send_array(zeroes, div);
+
+                gpio_put(PIN::NOT_SYNC, 1);
+
+                //busy_wait_at_least_cycles((FRONT_PORCH_NS)/CLOCK_LEN_NS);
+
+                sleep_us(1);
+
+                gpio_put(PIN::NOT_SYNC, 0);
+
+                //busy_wait_at_least_cycles(LINE_SYNC_NS/CLOCK_LEN_NS);
+
+                sleep_us(6);
+                
+                gpio_put(PIN::NOT_SYNC, 1);
+
+                //busy_wait_at_least_cycles(BACK_PORCH_NS/CLOCK_LEN_NS);
+
+                sleep_us(4);
+
                 
                 dac_write(send_buffer, send_buffer_size, line_div);
+
+                sleep_us(52);
+                
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
             }
             mutex_exit(&non_blanking_mx);
             ShortSync(6);
-
+            
             tmdif = (get_time_us()-tm);
+
             double rtm = double(tmdif) / 1000.0;
             float average = float(cmptm_tot) / float(lines_y);
-            //printf("%.4f %lli %lli %lli %.3f\n", rtm, cmptm, cmptm_max, cmptm_tot, average);
+            printf("%.4f %lli %lli %lli %.3f\n", rtm, cmptm, cmptm_max, cmptm_tot, average);
             cmptm_tot = 0;
             cmptm_max = 0;
         }
@@ -293,20 +344,25 @@ class PAL_DRIVER
 
         dac_init();
 
+        init_out({PIN::NOT_SYNC}, true);
+
 
         for(int i = 0; i < ArraySize(fb.front_porch); i++)
         {
-            fb.front_porch[i] = black;
+            fb.front_porch[i] = 0;
         }
         for(int i = 0; i < ArraySize(fb.back_porch); i++)
         {
-            fb.back_porch[i] = black;
+            fb.back_porch[i] = 0;
         }
 
         memset(long_sync, 0, ArraySize(long_sync));
-        memset(long_sync + 640 - 94 - 1, black, 94);
-        memset(short_sync, black, ArraySize(short_sync));
-        memset(short_sync, zero, 47);
+        memset(short_sync, 0, ArraySize(short_sync));
+
+        // memset(long_sync, 0, ArraySize(long_sync));
+        // memset(long_sync + 640 - 94 - 1, black, 94);
+        // memset(short_sync, black, ArraySize(short_sync));
+        // memset(short_sync, zero, 47);
         
         if(interlaced)
             LoopInterlaced();
@@ -373,6 +429,6 @@ class PAL_DRIVER
         }
         send_buffer_size = lines_x*samples_per_pixel;
         send_buffer = new uint8_t[send_buffer_size];
-        line_div /= samples_per_pixel;
+        line_div = ((VISUAL_NS/float(lines_x))/CLOCK_LEN_NS)/float(samples_per_pixel);
     }
 };
