@@ -208,9 +208,11 @@ class PAL_DRIVER
         {
             //dac_send_array(short_sync, div);
             gpio_put(PIN::NOT_SYNC, 0);
-            busy_wait_at_least_cycles(SHORT_SYNC_LOW_NS/CLOCK_LEN_NS);
+            //busy_wait_at_least_cycles(SHORT_SYNC_LOW_NS/CLOCK_LEN_NS);
+            sleep_us(2);
             gpio_put(PIN::NOT_SYNC, 1);
-            busy_wait_at_least_cycles(SHORT_SYNC_HIGH_NS/CLOCK_LEN_NS);
+            //busy_wait_at_least_cycles(SHORT_SYNC_HIGH_NS/CLOCK_LEN_NS);
+            sleep_us(60);
         }
     }
     void LongSync(int n)
@@ -220,9 +222,11 @@ class PAL_DRIVER
         {
             //dac_send_array(long_sync, div);
             gpio_put(PIN::NOT_SYNC, 0);
-            busy_wait_at_least_cycles(LONG_SYNC_LOW_NS/CLOCK_LEN_NS);
+            //busy_wait_at_least_cycles(LONG_SYNC_LOW_NS/CLOCK_LEN_NS);
+            sleep_us(59);
             gpio_put(PIN::NOT_SYNC, 1);
-            busy_wait_at_least_cycles(LONG_SYNC_HIGH_NS/CLOCK_LEN_NS);
+            sleep_us(5);
+            //busy_wait_at_least_cycles(LONG_SYNC_HIGH_NS/CLOCK_LEN_NS);
         }
     }
 
@@ -320,6 +324,8 @@ class PAL_DRIVER
                 
                 dac_write(send_buffer, send_buffer_size, line_div);
 
+                //dma_channel_wait_for_finish_blocking(dmachan);
+
                 sleep_us(52);
                 
 
@@ -331,9 +337,9 @@ class PAL_DRIVER
             
             tmdif = (get_time_us()-tm);
 
-            double rtm = double(tmdif) / 1000.0;
-            float average = float(cmptm_tot) / float(lines_y);
-            printf("%.4f %lli %lli %lli %.3f\n", rtm, cmptm, cmptm_max, cmptm_tot, average);
+            // double rtm = double(tmdif) / 1000.0;
+            // float average = float(cmptm_tot) / float(lines_y);
+            // printf("%.4f %lli %lli %lli %.3f\n", rtm, cmptm, cmptm_max, cmptm_tot, average);
             cmptm_tot = 0;
             cmptm_max = 0;
         }
