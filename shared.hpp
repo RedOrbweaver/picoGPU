@@ -1,6 +1,9 @@
 #pragma once
 //#include "hmain.hpp"
 
+
+constexpr uint sysclockkhz = 300000;
+
 enum RENDER_MODE
 {
     BW_408_304_DOUBLE_BUF,

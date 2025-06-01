@@ -42,16 +42,6 @@ class PAL_DRIVER
     int samples_per_pixel;
     int send_buffer_size;
 
-    uint8_t long_sync[640] = {0};
-    uint8_t short_sync[640] = {0};
-
-    struct
-    {
-        uint8_t front_porch[32];
-        uint8_t line_sync[96] = {0};
-        uint8_t back_porch[112];
-    }fb = {0};
-
     uint8_t zeroes[4] = {0};
 
     pio_hw_t* pio;
@@ -226,6 +216,16 @@ class PAL_DRIVER
             //busy_wait_at_least_cycles(LONG_SYNC_HIGH_NS/CLOCK_LEN_NS);
         }
     }
+    void LineSync()
+    {
+        dac_send_array(zeroes, div);
+        gpio_put(PIN::NOT_SYNC, 1);
+        sleep_us(1);
+        gpio_put(PIN::NOT_SYNC, 0);
+        sleep_us(6);
+        gpio_put(PIN::NOT_SYNC, 1);
+        sleep_us(4);
+    }
 
     void LoopInterlaced()
     {
@@ -242,9 +242,9 @@ class PAL_DRIVER
             ComputeSendBuffer(0);
             for(int i = 0; i < lines_y; i++)
             {
-                dac_write((uint8_t*)&fb, sizeof(fb), div);
-                
+                LineSync();
                 dac_write(send_buffer, send_buffer_size, line_div);
+                sleep_us(52);
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
@@ -258,9 +258,9 @@ class PAL_DRIVER
             ComputeSendBuffer(0);
             for(int i = 0; i < lines_y; i++)
             {
-                dac_write((uint8_t*)&fb, sizeof(fb), div);
-                
+                LineSync();
                 dac_write(send_buffer, send_buffer_size, line_div);
+                sleep_us(52);
 
 
                 if(i != lines_y-1)
@@ -292,39 +292,11 @@ class PAL_DRIVER
             ShortSync(5);
             mutex_enter_blocking(&non_blanking_mx);
             ComputeSendBuffer(0);
-            //dma_channel_wait_for_finish_blocking(dmachan);
             for(int i = 0; i < lines_y; i++)
             {
-                //dac_write((uint8_t*)&fb, sizeof(fb), div);
-                
-
-                dac_send_array(zeroes, div);
-
-                gpio_put(PIN::NOT_SYNC, 1);
-
-                //busy_wait_at_least_cycles((FRONT_PORCH_NS)/CLOCK_LEN_NS);
-
-                sleep_us(1);
-
-                gpio_put(PIN::NOT_SYNC, 0);
-
-                //busy_wait_at_least_cycles(LINE_SYNC_NS/CLOCK_LEN_NS);
-
-                sleep_us(6);
-                
-                gpio_put(PIN::NOT_SYNC, 1);
-
-                //busy_wait_at_least_cycles(BACK_PORCH_NS/CLOCK_LEN_NS);
-
-                sleep_us(4);
-
-                
+                LineSync();
                 dac_write(send_buffer, send_buffer_size, line_div);
-
-                //dma_channel_wait_for_finish_blocking(dmachan);
-
-                sleep_us(52);
-                
+                sleep_us(52);                
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
@@ -348,24 +320,6 @@ class PAL_DRIVER
         dac_init();
 
         init_out({PIN::NOT_SYNC}, true);
-
-
-        for(int i = 0; i < ArraySize(fb.front_porch); i++)
-        {
-            fb.front_porch[i] = 0;
-        }
-        for(int i = 0; i < ArraySize(fb.back_porch); i++)
-        {
-            fb.back_porch[i] = 0;
-        }
-
-        memset(long_sync, 0, ArraySize(long_sync));
-        memset(short_sync, 0, ArraySize(short_sync));
-
-        // memset(long_sync, 0, ArraySize(long_sync));
-        // memset(long_sync + 640 - 94 - 1, black, 94);
-        // memset(short_sync, black, ArraySize(short_sync));
-        // memset(short_sync, zero, 47);
         
         if(interlaced)
             LoopInterlaced();

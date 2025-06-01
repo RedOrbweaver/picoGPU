@@ -1,39 +1,64 @@
 #pragma once
 #include "hmain.hpp"
 
-enum ENTITY_TYPE : uint8_t
+constexpr int N_ENTITIES = 64;
+constexpr int TEXT_BUFFER_SIZE = 2048;
+
+enum class ENTITY_TYPE : uint8_t
 {
-    SHAPE_SOLID,
+    SHAPE, // data: shape; shape data...
     SPRITE,
     LINE,
     TEXT,
 };
 
-struct PACK Entity // 32 bytes
+enum class SHAPE : uint8_t
 {
+    CIRCLE, // data: fill colour; edge colour
+    RECTANGLE, // data: fill colour; edge colour
+    TRIANGLE, // data: fill colour; edge colour; x y z positions (multiplied by size)
+};
+
+struct PACK Entity // 24 bytes
+{
+    // 4 bytes
     ENTITY_TYPE type;
     bool visible;
     uint8_t rotation;
     uint8_t layer;
-    uint16_t x;
-    uint16_t y;
-    uint16_t sx; 
-    uint16_t sy;
-    uint8_t data[20];
+
+    // 8 bytes
+    vec2<uint16_t> pos;
+    vec2<uint16_t> size;
+
+    // 12 bytes
+    uint8_t data[12];
+};
+
+enum class BACKGROUND_MODE
+{
+    SOLID_SHADE,
+    TEXTURE
 };
 
 struct PACK Background
 {
     bool visible = false;
-    uint16_t x;
-    uint16_t y;
-    uint16_t sx;
-    uint16_t sy;
-    uint16_t px;
-    uint16_t py;
-    void* data;
+    BACKGROUND_MODE mode;
+    vec2<uint16_t> pos;
+    vec2<uint16_t> size;
+    vec2<uint16_t> source_size;
+    uint8_t value;
+    uint8_t* data;
 };
 
 
-inline Entity entity_buffer[32];
+inline Entity entity_buffer[N_ENTITIES];
+inline char text_buffer[TEXT_BUFFER_SIZE];
 inline Background background;
+
+struct ScreenContext
+{
+    uint8_t* data;
+    vec2<int> screen_size;
+};
