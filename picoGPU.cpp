@@ -213,7 +213,36 @@ void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2
 }
 void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> size, uint8_t rotation)
 {
+    if(rotation == 0)
+    {
+        size.x -= 1;
+        size.y -= 1;
+        pos.x += 1;
+        pos.y += 1;
+        for(int i = std::max(0, pos.x-size.x/2); i < std::min(context.screen_size.x, pos.x+size.x/2); i++)
+        {
+            for(int ii = std::max(0, pos.y-size.y/2); ii < std::min(context.screen_size.y, pos.y+size.y/2); ii++)
+            {
+                SetPixel(context, fill, {i, ii});
+            }
+        }
+        size.x += 1;
+        size.y += 1;
+        pos.x -= 1;
+        pos.y -= 1;
+        for(int i = 0; i < size.x; i++)
+            SetPixel(context, border, {i+pos.x-size.x/2, pos.y-size.y/2});
+        for(int i = 0; i < size.x; i++)
+            SetPixel(context, border, {i+pos.x-size.x/2, pos.y+size.y/2});
+        for(int i = 0; i < size.y; i++)
+            SetPixel(context, border, {pos.x-size.x/2, i+pos.y-size.y/2});
+        for(int i = 0; i < size.y; i++)
+            SetPixel(context, border, {pos.x+size.x/2, i+pos.y-size.y/2});
+    }
+    else
+    {
 
+    }
 }
 void DrawTriangle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> size, vec2<int> p0, vec2<int> p1, vec2<int> p2)
 {
@@ -230,12 +259,13 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
             {
                 case SHAPE::CIRCLE:
                 {
-                    DrawCircle(context, entity.data[0], entity.data[1], {entity.pos.x, entity.pos.y}, 
+                    DrawCircle(context, entity.data[1], entity.data[2], {entity.pos.x, entity.pos.y}, 
                         {entity.size.x, entity.size.y}, entity.rotation);
                     break;
                 }
                 case SHAPE::RECTANGLE:
                 {
+                    DrawRectangle(context, entity.data[1], entity.data[2], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y}, entity.rotation);
                     break;
                 }
                 case SHAPE::TRIANGLE:
@@ -368,6 +398,16 @@ int main()
     ball.data[0] = (uint8_t)SHAPE::CIRCLE;
     ball.data[1] = 128;
     ball.data[2] = 0;
+
+    Entity& crect = entity_buffer[1];
+    crect.visible = true;
+    crect.type = ENTITY_TYPE::SHAPE;
+    crect.layer = 1;
+    crect.pos = {uint16_t(lines_x/2), uint16_t(lines_y/2)};
+    crect.size = {50, 25};
+    crect.data[0] = (uint8_t)SHAPE::RECTANGLE;
+    crect.data[1] = 0;
+    crect.data[2] = 200;
 
     while(true)
     {

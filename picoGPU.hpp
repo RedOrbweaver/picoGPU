@@ -14,9 +14,9 @@ enum class ENTITY_TYPE : uint8_t
 
 enum class SHAPE : uint8_t
 {
-    CIRCLE, // data: fill colour; edge colour
-    RECTANGLE, // data: fill colour; edge colour
-    TRIANGLE, // data: fill colour; edge colour; x y z positions (multiplied by size)
+    CIRCLE, // data: border colour; fill colour
+    RECTANGLE, // data: border colour; fill colour
+    TRIANGLE, // data: border colour; fill colour; x y z positions (multiplied by size)
 };
 
 struct PACK Entity // 24 bytes
