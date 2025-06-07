@@ -376,91 +376,117 @@ uint64_t RenderFrame()
     return tmdf;
 }
 
-void HandleSPIRead(SOURCE source, uint8_t address0, uint8_t address1, uint8_t len)
+void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t len, uint8_t* data)
 {
-
-}
-void HandleSPIWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t len, uint8_t* data)
-{
+    if(len == 0)
+    {
+        printf("Zero length i2c write attempted!\n");
+        return;
+    }
     switch(source)
     {
         case SOURCE::DEBUG_PRITNF:
         {
-            uint8_t* buf = new uint8_t[len+1];
+            uint8_t buf[256];
             memcpy(buf, data, len);
             buf[len] = '\0';
             printf("%s\n", buf);
 
-            delete[] buf;
-            
             break;
         }
+        case SOURCE::ENTITY_BUFFER:
+        {
+            // Somewhat ensures that the entity buffer is not being copied.
+            // This isn't actually a guarantee, as a new copy operation could start at any moment.
+            // Still the entity rendering system is supposed to be safe from buffer overruns,
+            // so at worst this will cause an occassional artifact
+            dmawaitformemcopies();
+
+            if(address0 >= N_ENTITIES)
+            {
+                printf("Out of bounds read of the entity buffer at %i!\n", (int)address0);
+                break;
+            }
+            uint8_t* entdt = (uint8_t*)(entity_buffer + address0);
+            if(address1 + len > sizeof(Entity))
+            {
+                printf("Out of bounds write to an entity at %i for len %i!\n",(int)address1, (int)len);
+                break;
+            }
+            for(int i = 0; i < len; i++)
+            {
+                entdt[address1+i] = data[i];
+            }
+
+            break;
+        }
+        
     }
 }
 
-void _SPIHandler()
+void _I2CHandler()
 {
     
-    if(spi_last_message != 0)
+    if(i2c_last_message != 0)
     {
-        // uint64_t time_since_last_message = get_time_us() - spi_last_message;
+        // uint64_t time_since_last_message = get_time_us() - i2c_last_message;
         // if(time_since_last_message > 10000) // after 10ms reset the state
         //     spi_state.state = SPI_STATE::NONE;
     }
-    spi_last_message = get_time_us();
+    i2c_last_message = get_time_us();
 
-    uint8_t value = spi0_hw->dr;
+    uint8_t value = i2c0->hw->data_cmd & I2C_IC_DATA_CMD_BITS;
     
     //uint8_t value = 0;//spi0_hw->dr;
     //spi_read_blocking(spi0, 0, &value, 1);
 
-    switch(spi_state.state)
+    switch(i2c_state.state)
     {
         case SPI_STATE::NONE:
         {
             if(value == 0xEF)
             {
-                spi_state.read = true;
+                i2c_state.read = true;
             }
             else if(value != 0xFF)
             {
                 printf("ERROR: INVALID FIRST SPI VALUE: %i\n", (int)value);
                 break;
             }
-            spi_state.state = SPI_STATE::SOURCE;
+            i2c_state.state = SPI_STATE::SOURCE;
             break;
         }
         case SPI_STATE::SOURCE:
         {
-            spi_state.source = (SOURCE)value;
-            spi_state.state = SPI_STATE::ADDR0;
+            i2c_state.source = (SOURCE)value;
+            i2c_state.state = SPI_STATE::ADDR0;
             break;
         }
         case SPI_STATE::ADDR0:
         {
-            spi_state.address0 = value;
-            spi_state.state = SPI_STATE::ADDR1;
+            i2c_state.address0 = value;
+            i2c_state.state = SPI_STATE::ADDR1;
             break;
         }
         case SPI_STATE::ADDR1:
         {
-            spi_state.address1 = value;
-            spi_state.state = SPI_STATE::LEN;
+            i2c_state.address1 = value;
+            i2c_state.state = SPI_STATE::LEN;
             break;
         }
         case SPI_STATE::LEN:
         {
 
-            spi_state.len = value;
-            spi_state.data_pos = 0;
-            if(spi_state.read == true)
+            i2c_state.len = value;
+            i2c_state.data_pos = 0;
+            if(i2c_state.read == true)
             {
-                spi_state.state = SPI_STATE::NONE;
-                HandleSPIRead(spi_state.source, spi_state.address0, spi_state.address1, spi_state.len);
+                i2c_state.state = SPI_STATE::NONE;
+                i2c_state.data_pos = 0;
             }
             else
             {
-                spi_state.state = SPI_STATE::DATA;
+                i2c_state.state = SPI_STATE::DATA;
                 //spi_state.state = SPI_STATE::NONE;
                 //spi_read_blocking(spi0, 0, spi_state.data, spi_state.len);
                 //HandleSPIWrite(spi_state.source, spi_state.address0, spi_state.address1, spi_state.len, spi_state.data);
@@ -469,12 +495,12 @@ void _SPIHandler()
         }
         case SPI_STATE::DATA:
         {
-            spi_state.data[spi_state.data_pos] = value;
-            spi_state.data_pos++;
-            if(spi_state.data_pos == spi_state.len)
+            i2c_state.data[i2c_state.data_pos] = value;
+            i2c_state.data_pos++;
+            if(i2c_state.data_pos == i2c_state.len)
             {
-                spi_state.state = SPI_STATE::NONE;
-                HandleSPIWrite(spi_state.source, spi_state.address0, spi_state.address1, spi_state.len, spi_state.data);
+                i2c_state.state = SPI_STATE::NONE;
+                HandleI2CWrite(i2c_state.source, i2c_state.address0, i2c_state.address1, i2c_state.len, i2c_state.data);
             }
             break;
         }
@@ -483,17 +509,33 @@ void _SPIHandler()
             assert(false, "Invalid SPI state!");
         }
     }
-} 
-
-
-void SPIHandler()
+}
+uint8_t I2CGetNextByte()
 {
-    for(int i = 0; i < 2; i++)
+    uint8_t value;
+    switch(i2c_state.source)
     {
-        while(spi0_hw->mis & SPI_SSPMIS_RXMIS_BITS)
+        case SOURCE::DEBUG_PRITNF:
         {
-            _SPIHandler();
+            value = i2c_state.data[i2c_state.data_pos++];
+            i2c_state.data_pos %= i2c_state.len;
         }
+    }
+    return value;
+}
+
+
+void I2CHandler()
+{
+    uint8_t status = i2c0->hw->intr_stat;
+    if(status & I2C_IC_INTR_STAT_R_RX_FULL_BITS)
+    {
+        _I2CHandler();
+    }
+    else if(status & I2C_IC_INTR_STAT_R_RD_REQ_BITS)
+    {
+        i2c0->hw->data_cmd = I2CGetNextByte();
+        i2c0->hw->clr_rd_req;
     }
 }
 
@@ -527,17 +569,26 @@ int main()
     InitRendering();
 
 
-    spi_init(spi0, 1000 * 100);
-    spi_set_slave(spi0, true);
-    gpio_set_function(PIN::SPI_RX, GPIO_FUNC_SPI);
-    gpio_set_function(PIN::SPI_SCK, GPIO_FUNC_SPI);
-    gpio_set_function(PIN::SPI_TX, GPIO_FUNC_SPI);
-    gpio_set_function(PIN::SPI_CS, GPIO_FUNC_SPI);
-    irq_set_enabled(SPI0_IRQ, true);
-    irq_set_exclusive_handler(SPI0_IRQ, SPIHandler);
-    spi0_hw->imsc = SPI_SSPIMSC_RXIM_BITS; // magic bit that enables the IRQ callback
+    i2c_init(i2c0, 2 * 1000 * 1000);
 
-    spi_state = {};
+    gpio_set_function(PIN::I2C_SCL, GPIO_FUNC_I2C);
+    gpio_set_pulls(PIN::I2C_SCL, true, false);
+    gpio_set_function(PIN::I2C_SDA, GPIO_FUNC_I2C);
+    gpio_set_pulls(PIN::I2C_SDA, true, false);
+
+    i2c_set_slave_mode(i2c0, true, I2C_ADDR);
+    
+    i2c0->hw->enable = 0;
+    hw_set_bits(&i2c0->hw->con, I2C_IC_CON_RX_FIFO_FULL_HLD_CTRL_BITS);
+    i2c0->hw->enable = 1;
+
+
+    i2c0->hw->intr_mask =  I2C_IC_INTR_MASK_M_RD_REQ_BITS | I2C_IC_INTR_MASK_M_RX_FULL_BITS;
+
+    irq_set_exclusive_handler(I2C0_IRQ, I2CHandler);
+    irq_set_enabled(I2C0_IRQ, true);
+
+    i2c_state = {};
 
 
     uint8_t* video_data = driver->GetBackBuffer();
