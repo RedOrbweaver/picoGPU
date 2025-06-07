@@ -39,7 +39,11 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(picoGPU picoGPU.cpp )
+
+file(GLOB_RECURSE DECODER "${CMAKE_CURRENT_LIST_DIR}/mcufont/decoder/*.c")
+file(GLOB_RECURSE ENCODER "${CMAKE_CURRENT_LIST_DIR}/mcufont/encoder/*.c")
+
+add_executable(picoGPU picoGPU.cpp ${DECODER} ${ENCODER})
 
 pico_set_program_name(picoGPU "picoGPU")
 pico_set_program_version(picoGPU "0.1")
@@ -58,6 +62,10 @@ target_link_libraries(picoGPU
 # Add the standard include files to the build
 target_include_directories(picoGPU PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/mcufont
+        ${CMAKE_CURRENT_LIST_DIR}/mcufont/decoder
+        ${CMAKE_CURRENT_LIST_DIR}/mcufont/encoder
+        ${CMAKE_CURRENT_LIST_DIR}/mcufont/fonts
 )
 
 # Add any user requested libraries

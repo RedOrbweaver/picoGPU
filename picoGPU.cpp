@@ -1,5 +1,8 @@
 #include "hmain.hpp"
 
+#include "fonts.h"
+#include "mcufont.h"
+
 PAL_DRIVER* driver;
 int dmamemcpychan1;
 dma_channel_config dmamemcpychan1c;
@@ -249,6 +252,20 @@ void DrawTriangle(const ScreenContext& context, uint8_t border, uint8_t fill, ve
     
 }
 
+
+void PixelCallback(int16_t x, int16_t y, uint8_t count, uint8_t alpha, void* state)
+{
+    ScreenContext* context = (ScreenContext*)state;
+    for(int i = 0; i < count; i++)
+    {
+        context->data[y * context->screen_size.x + x + i] = 255-alpha;
+    }
+}
+uint8_t CharacterCallback(int16_t x, int16_t y, mf_char character, void* state)
+{
+    return mf_render_character(&mf_rlefont_DejaVuSerif16.font, x, y, character, &PixelCallback, state);
+}
+
 void DrawEntity(const Entity& entity, const ScreenContext& context)
 {
     switch(entity.type)
@@ -335,11 +352,150 @@ uint64_t RenderFrame()
         if(entities[i].visible)
             DrawEntity(entities[i], context);
     }
+
+    std::string text = "this is all one big test!";
+    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 100, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
+
+    text = "Never gonna give you up!";
+    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 120, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
+
+    text = "Never gonna let you down!";
+
+    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 140, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
+
+    text = "NANANANANANANANA";
+
+    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 160, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
+
+    text = "!@#$%^&*()";
+
+    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 180, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
+
     uint64_t tmdf = get_time_us()-start;
     driver->SwapBuffersBlocking();
     return tmdf;
 }
- 
+
+void HandleSPIRead(SOURCE source, uint8_t address0, uint8_t address1, uint8_t len)
+{
+
+}
+void HandleSPIWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t len, uint8_t* data)
+{
+    switch(source)
+    {
+        case SOURCE::DEBUG_PRITNF:
+        {
+            uint8_t* buf = new uint8_t[len+1];
+            memcpy(buf, data, len);
+            buf[len] = '\0';
+            printf("%s\n", buf);
+
+            delete[] buf;
+            
+            break;
+        }
+    }
+}
+
+void _SPIHandler()
+{
+    
+    if(spi_last_message != 0)
+    {
+        // uint64_t time_since_last_message = get_time_us() - spi_last_message;
+        // if(time_since_last_message > 10000) // after 10ms reset the state
+        //     spi_state.state = SPI_STATE::NONE;
+    }
+    spi_last_message = get_time_us();
+
+    uint8_t value = spi0_hw->dr;
+    
+    //uint8_t value = 0;//spi0_hw->dr;
+    //spi_read_blocking(spi0, 0, &value, 1);
+
+    switch(spi_state.state)
+    {
+        case SPI_STATE::NONE:
+        {
+            if(value == 0xEF)
+            {
+                spi_state.read = true;
+            }
+            else if(value != 0xFF)
+            {
+                printf("ERROR: INVALID FIRST SPI VALUE: %i\n", (int)value);
+                break;
+            }
+            spi_state.state = SPI_STATE::SOURCE;
+            break;
+        }
+        case SPI_STATE::SOURCE:
+        {
+            spi_state.source = (SOURCE)value;
+            spi_state.state = SPI_STATE::ADDR0;
+            break;
+        }
+        case SPI_STATE::ADDR0:
+        {
+            spi_state.address0 = value;
+            spi_state.state = SPI_STATE::ADDR1;
+            break;
+        }
+        case SPI_STATE::ADDR1:
+        {
+            spi_state.address1 = value;
+            spi_state.state = SPI_STATE::LEN;
+            break;
+        }
+        case SPI_STATE::LEN:
+        {
+
+            spi_state.len = value;
+            spi_state.data_pos = 0;
+            if(spi_state.read == true)
+            {
+                spi_state.state = SPI_STATE::NONE;
+                HandleSPIRead(spi_state.source, spi_state.address0, spi_state.address1, spi_state.len);
+            }
+            else
+            {
+                spi_state.state = SPI_STATE::DATA;
+                //spi_state.state = SPI_STATE::NONE;
+                //spi_read_blocking(spi0, 0, spi_state.data, spi_state.len);
+                //HandleSPIWrite(spi_state.source, spi_state.address0, spi_state.address1, spi_state.len, spi_state.data);
+            }
+            break;
+        }
+        case SPI_STATE::DATA:
+        {
+            spi_state.data[spi_state.data_pos] = value;
+            spi_state.data_pos++;
+            if(spi_state.data_pos == spi_state.len)
+            {
+                spi_state.state = SPI_STATE::NONE;
+                HandleSPIWrite(spi_state.source, spi_state.address0, spi_state.address1, spi_state.len, spi_state.data);
+            }
+            break;
+        }
+        default:
+        {
+            assert(false, "Invalid SPI state!");
+        }
+    }
+} 
+
+
+void SPIHandler()
+{
+    for(int i = 0; i < 2; i++)
+    {
+        while(spi0_hw->mis & SPI_SSPMIS_RXMIS_BITS)
+        {
+            _SPIHandler();
+        }
+    }
+}
 
 void core1_entry()
 {
@@ -359,8 +515,6 @@ int main()
     printf("clock set successfully\n");
 
 
-
-
     adc_init();
     adc_set_temp_sensor_enabled(true);
 
@@ -371,6 +525,20 @@ int main()
     multicore_launch_core1(core1_entry);
 
     InitRendering();
+
+
+    spi_init(spi0, 1000 * 100);
+    spi_set_slave(spi0, true);
+    gpio_set_function(PIN::SPI_RX, GPIO_FUNC_SPI);
+    gpio_set_function(PIN::SPI_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(PIN::SPI_TX, GPIO_FUNC_SPI);
+    gpio_set_function(PIN::SPI_CS, GPIO_FUNC_SPI);
+    irq_set_enabled(SPI0_IRQ, true);
+    irq_set_exclusive_handler(SPI0_IRQ, SPIHandler);
+    spi0_hw->imsc = SPI_SSPIMSC_RXIM_BITS; // magic bit that enables the IRQ callback
+
+    spi_state = {};
+
 
     uint8_t* video_data = driver->GetBackBuffer();
 
@@ -437,7 +605,7 @@ int main()
         double rftmf = double(rftm) / 1000.0f;
         double ttmdf = double(ttmd) / 1000.0f;
 
-        printf("ttm: %.4f | rftm %.4f | rtm: %.4f\n", ttmdf, rftmf, rtmdf);
-        WriteTemperature();
+        //printf("ttm: %.4f | rftm %.4f | rtm: %.4f\n", ttmdf, rftmf, rtmdf);
+        //WriteTemperature();
     }
 }

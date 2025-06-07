@@ -1,3 +1,6 @@
 [submodule "redpicolib"]
 	path = redpicolib
 	url = https://github.com/RedOrbweaver/redpicolib
+[submodule "mcufont"]
+	path = mcufont
+	url = https://github.com/mcufont/mcufont

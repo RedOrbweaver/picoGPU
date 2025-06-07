@@ -26,12 +26,43 @@
 #include "redpicolib/RedPicoLib.hpp"
 #include "dac_out.pio.h"
 
+
 namespace PIN
 {
     uint8_t DAC_OUT[8] = {2, 3, 4, 5, 6, 7, 8, 9};
     uint8_t NOT_SYNC = 10;
+    uint8_t SPI_RX = 16;
+    uint8_t SPI_CS = 17;
+    uint8_t SPI_SCK = 18;
+    uint8_t SPI_TX = 19;
 }
 
 #include "shared.hpp"
 #include "picoGPU.hpp"
 #include "PAL.hpp"
+
+
+enum class SPI_STATE : uint8_t
+{
+    NONE=0,
+    SOURCE,
+    ADDR0,
+    ADDR1,
+    LEN,
+    DATA,
+};
+
+struct spi_state_machine
+{
+    SPI_STATE state;
+    SOURCE source;
+    uint8_t address0;
+    uint8_t address1;
+    uint8_t len;
+    uint8_t data[255];
+    uint8_t data_pos;
+    bool read;
+};
+
+inline spi_state_machine spi_state;
+inline uint64_t spi_last_message = 0;
