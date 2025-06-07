@@ -28,12 +28,23 @@ enum class SOURCE : uint8_t
 constexpr int N_ENTITIES = 64;
 constexpr int TEXT_BUFFER_SIZE = 2048;
 
+enum class FONT : uint8_t
+{
+    DEJAVUSANS_12 = 0,
+    DEJAVUSANS_12_BW = 1,
+    DEJAVUSERIF_F_16 = 2,
+    DEJAVUSERIF_F_32 = 3,
+    FIXED_5_8 = 4,
+    FIXED_7_14 = 5,
+    FIXED_10_20 = 6,
+};
+
 enum class ENTITY_TYPE : uint8_t
 {
     SHAPE, // data: shape; shape data...
     SPRITE,
     LINE,
-    TEXT,
+    TEXT, // data: font, text buffer pos (16 bit), text len (16 bit)
 };
 
 enum class SHAPE : uint8_t

@@ -252,7 +252,7 @@ void DrawTriangle(const ScreenContext& context, uint8_t border, uint8_t fill, ve
     
 }
 
-
+const mf_font_s* current_font;
 void PixelCallback(int16_t x, int16_t y, uint8_t count, uint8_t alpha, void* state)
 {
     ScreenContext* context = (ScreenContext*)state;
@@ -263,8 +263,31 @@ void PixelCallback(int16_t x, int16_t y, uint8_t count, uint8_t alpha, void* sta
 }
 uint8_t CharacterCallback(int16_t x, int16_t y, mf_char character, void* state)
 {
-    return mf_render_character(&mf_rlefont_DejaVuSerif16.font, x, y, character, &PixelCallback, state);
+    return mf_render_character(current_font, x, y, character, &PixelCallback, state);
 }
+
+void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint16_t bufstart, uint16_t len)
+{
+    static const mf_font_s* fonts[] = {&mf_rlefont_DejaVuSans12.font, &mf_rlefont_DejaVuSans12bw.font, 
+        &mf_rlefont_DejaVuSerif16.font, &mf_rlefont_DejaVuSerif32.font, &mf_bwfont_fixed_5x8.font,
+        &mf_rlefont_fixed_7x14.font, &mf_rlefont_fixed_10x20.font};
+    if((uint8_t)font >= ArraySize(fonts))
+    {
+        printf("Invalid font %i\n", (int)font);
+        return;
+    }
+
+    if(bufstart + len > TEXT_BUFFER_SIZE)
+    {
+        printf("Out of text buffer range at %i for len %i\n", (int)bufstart, (int)len);
+    }
+
+    current_font = fonts[(int)font];
+
+    mf_render_aligned(current_font, pos.x, pos.y, MF_ALIGN_LEFT, text_buffer + bufstart, len, &CharacterCallback, (void*)&context);
+}
+
+
 
 void DrawEntity(const Entity& entity, const ScreenContext& context)
 {
@@ -296,6 +319,11 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
             }
             break;
         };
+        case ENTITY_TYPE::TEXT:
+        {
+            DrawText(context, entity.pos, (FONT)entity.data[0], *(uint16_t*)(entity.data + 1), *(uint16_t*)(entity.data + 3));
+            break;
+        }
         default:
         {
             printf("Invalid entity type!: %i\n", (int)entity.type);
@@ -353,24 +381,6 @@ uint64_t RenderFrame()
             DrawEntity(entities[i], context);
     }
 
-    std::string text = "this is all one big test!";
-    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 100, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
-
-    text = "Never gonna give you up!";
-    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 120, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
-
-    text = "Never gonna let you down!";
-
-    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 140, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
-
-    text = "NANANANANANANANA";
-
-    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 160, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
-
-    text = "!@#$%^&*()";
-
-    mf_render_aligned(&mf_rlefont_DejaVuSerif16.font, 50, 180, MF_ALIGN_LEFT, text.c_str(), text.length(), &CharacterCallback, &context);
-
     uint64_t tmdf = get_time_us()-start;
     driver->SwapBuffersBlocking();
     return tmdf;
@@ -418,6 +428,24 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
                 entdt[address1+i] = data[i];
             }
 
+            break;
+        }
+        case SOURCE::TEXT_BUFFER:
+        {
+            // see above
+            dmawaitformemcopies();
+
+            uint16_t address = uint16_t(address0) << 8 | uint16_t(address1);
+            if(address + len > TEXT_BUFFER_SIZE)
+            {
+                printf("Attempting to write to the text buffer beyond its bounds at %i for len %i\n", (int)address, (int)len);
+                break;
+            }
+            
+            for(int i = 0; i < len; i++)
+            {
+                text_buffer[address+i] = data[i];
+            }
             break;
         }
         
@@ -597,11 +625,11 @@ int main()
     int lines_y = driver->GetLinesY();
     int video_data_size = lines_x*lines_y;
 
-    float sx = 10.0f;
-    float sy = 10.0f;
-    float px = 50.00f;
-    float py = 50.0f;
-    float r = 15;
+    // float sx = 10.0f;
+    // float sy = 10.0f;
+    // float px = 50.00f;
+    // float py = 50.0f;
+    // float r = 15;
 
 
     printf("Remaining memory: %i\n", GetFreeHeap());
@@ -609,14 +637,14 @@ int main()
     background.mode = BACKGROUND_MODE::SOLID_SHADE;
     background.value = 255; 
     
-    Entity& ball = entity_buffer[0];
-    ball.visible = true;
-    ball.type = ENTITY_TYPE::SHAPE;
-    ball.layer = 0;
-    ball.size = vec2<uint16_t>{uint16_t(r), uint16_t(r)};
-    ball.data[0] = (uint8_t)SHAPE::CIRCLE;
-    ball.data[1] = 128;
-    ball.data[2] = 0;
+    // Entity& ball = entity_buffer[0];
+    // ball.visible = true;
+    // ball.type = ENTITY_TYPE::SHAPE;
+    // ball.layer = 0;
+    // ball.size = vec2<uint16_t>{uint16_t(r), uint16_t(r)};
+    // ball.data[0] = (uint8_t)SHAPE::CIRCLE;
+    // ball.data[1] = 128;
+    // ball.data[2] = 0;
 
     Entity& crect = entity_buffer[1];
     crect.visible = true;
@@ -630,31 +658,29 @@ int main()
 
     while(true)
     {
-        uint64_t ttm = get_time_us();
-        float nx = px + sx;
-        float ny = py + sy;
-        if(nx < r || nx > float(lines_x)-2*r)
-        {
-            sx = -sx;
-        }
-        else
-            px = nx;
-        if(ny < 2*r || ny > float(lines_y)-r)
-        {
-            sy = -sy;
-        }
-        else
-            py = ny;
+        // uint64_t ttm = get_time_us();
+        // float nx = px + sx;
+        // float ny = py + sy;
+        // if(nx < r || nx > float(lines_x)-2*r)
+        // {
+        //     sx = -sx;
+        // }
+        // else
+        //     px = nx;
+        // if(ny < 2*r || ny > float(lines_y)-r)
+        // {
+        //     sy = -sy;
+        // }
+        // else
+        //     py = ny;
 
-        ball.pos = vec2<uint16_t>{(uint16_t)px, (uint16_t)py};
-        ball.rotation += 1;
-        uint64_t ttmd = get_time_us() - ttm;
+        // ball.pos = vec2<uint16_t>{(uint16_t)px, (uint16_t)py};
+        // ball.rotation += 1;
         uint64_t rtm = get_time_us();
         uint64_t rftm = RenderFrame();
         uint64_t rtmd = get_time_us()-rtm;
         double rtmdf = double(rtmd) / 1000.0f;
         double rftmf = double(rftm) / 1000.0f;
-        double ttmdf = double(ttmd) / 1000.0f;
 
         //printf("ttm: %.4f | rftm %.4f | rtm: %.4f\n", ttmdf, rftmf, rtmdf);
         //WriteTemperature();

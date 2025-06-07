@@ -40,6 +40,7 @@
         "random": "cpp",
         "dejavusans12.c": "cpp",
         "dejavusans12bw.c": "cpp",
-        "mf_rlefont.h": "c"
+        "mf_rlefont.h": "c",
+        "fixed_5x8.c": "cpp"
     }
 }
