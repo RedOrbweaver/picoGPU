@@ -3,6 +3,7 @@
 
 
 constexpr uint sysclockkhz = 300000;
+constexpr uint i2cspeed = 100 * 1000;
 
 enum RENDER_MODE
 {
@@ -17,6 +18,7 @@ enum SAMPLING_MODE
 };
 enum class SOURCE : uint8_t
 {
+    TEST,
     DEBUG_PRITNF,
     SETTINGS,
     ENTITY_BUFFER,
@@ -24,6 +26,7 @@ enum class SOURCE : uint8_t
     BACKGROUND_SETTINGS,
     BACKGROUND_TEXTURE,
     TEXTURE,
+    INFO,
 };
 
 constexpr int N_ENTITIES = 64;
@@ -93,4 +96,14 @@ struct PACK Background
     vec2<uint16_t> source_size;
     uint8_t value;
     uint8_t* data;
+};
+
+struct PACK Settings
+{
+
+};
+
+struct PACK Info
+{
+    uint64_t last_render_time_us;
 };

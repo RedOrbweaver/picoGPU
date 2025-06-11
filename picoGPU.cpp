@@ -518,7 +518,16 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
             }
             break;
         }
-        
+        case SOURCE::INFO:
+        {
+            printf("Writing to INFO not supported!\n");
+            break;
+        }
+        default:
+        {
+            printf("Invalid source: %i\n", (int)source);
+            break;
+        }
     }
 }
 
@@ -535,8 +544,6 @@ void _I2CHandler()
 
     uint8_t value = i2c0->hw->data_cmd & I2C_IC_DATA_CMD_BITS;
     
-    //uint8_t value = 0;//spi0_hw->dr;
-    //spi_read_blocking(spi0, 0, &value, 1);
 
     switch(i2c_state.state)
     {
@@ -546,9 +553,13 @@ void _I2CHandler()
             {
                 i2c_state.read = true;
             }
-            else if(value != 0xFF)
+            else if(value == 0xFF)
             {
-                printf("ERROR: INVALID FIRST SPI VALUE: %i\n", (int)value);
+                i2c_state.read = false;
+            }
+            else
+            {
+                printf("ERROR: INVALID FIRST I2C VALUE: %i\n", (int)value);
                 break;
             }
             i2c_state.state = SPI_STATE::SOURCE;
@@ -604,7 +615,7 @@ void _I2CHandler()
         }
         default:
         {
-            assert(false, "Invalid SPI state!");
+            assert(false, "Invalid I2C state!");
         }
     }
 }
@@ -617,6 +628,22 @@ uint8_t I2CGetNextByte()
         {
             value = i2c_state.data[i2c_state.data_pos++];
             i2c_state.data_pos %= i2c_state.len;
+            break;
+        }
+        case SOURCE::INFO:
+        {
+            if(i2c_state.data_pos >= sizeof(Info))
+            {
+                printf("Out of bounds read to info at %i!\n", (int)i2c_state.data_pos);
+                return 0xFF;
+            }
+            value = ((uint8_t*)&information)[i2c_state.data_pos++];
+            break;
+        }
+        case SOURCE::TEST:
+        {
+            value = 0x13;
+            break;
         }
     }
     return value;
@@ -632,7 +659,9 @@ void I2CHandler()
     }
     else if(status & I2C_IC_INTR_STAT_R_RD_REQ_BITS)
     {
-        i2c0->hw->data_cmd = I2CGetNextByte();
+        uint8_t v = I2CGetNextByte();
+        //printf("writing %i\n", (int)v);
+        i2c0->hw->data_cmd = v;
         i2c0->hw->clr_rd_req;
     }
 }
@@ -667,7 +696,7 @@ int main()
     InitRendering();
 
 
-    i2c_init(i2c0, 2 * 1000 * 1000);
+    i2c_init(i2c0, i2cspeed);
 
     gpio_set_function(PIN::I2C_SCL, GPIO_FUNC_I2C);
     gpio_set_pulls(PIN::I2C_SCL, true, false);
@@ -734,33 +763,11 @@ int main()
     crect.data[6] = 80;
     crect.data[7] = 80;
 
+    crect.data[8] = 1;
+
     while(true)
     {
-        // uint64_t ttm = get_time_us();
-        // float nx = px + sx;
-        // float ny = py + sy;
-        // if(nx < r || nx > float(lines_x)-2*r)
-        // {
-        //     sx = -sx;
-        // }
-        // else
-        //     px = nx;
-        // if(ny < 2*r || ny > float(lines_y)-r)
-        // {
-        //     sy = -sy;
-        // }
-        // else
-        //     py = ny;
-
-        // ball.pos = vec2<uint16_t>{(uint16_t)px, (uint16_t)py};
-        // ball.rotation += 1;
-        uint64_t rtm = get_time_us();
-        uint64_t rftm = RenderFrame();
-        uint64_t rtmd = get_time_us()-rtm;
-        double rtmdf = double(rtmd) / 1000.0f;
-        double rftmf = double(rftm) / 1000.0f;
-
-        //printf("ttm: %.4f | rftm %.4f | rtm: %.4f\n", ttmdf, rftmf, rtmdf);
-        //WriteTemperature();
+        uint64_t render_time = RenderFrame();
+        information.last_render_time_us = render_time;
     }
 }

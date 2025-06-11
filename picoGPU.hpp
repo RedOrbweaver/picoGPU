@@ -36,3 +36,4 @@ struct i2c_state_machine
 
 inline i2c_state_machine i2c_state;
 inline uint64_t i2c_last_message = 0;
+inline Info information;
