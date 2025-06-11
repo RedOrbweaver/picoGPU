@@ -18,6 +18,7 @@ enum SAMPLING_MODE
 enum class SOURCE : uint8_t
 {
     DEBUG_PRITNF,
+    SETTINGS,
     ENTITY_BUFFER,
     TEXT_BUFFER,
     BACKGROUND_SETTINGS,
@@ -39,19 +40,26 @@ enum class FONT : uint8_t
     FIXED_10_20 = 6,
 };
 
+enum class TEXT_ALIGNMENT : uint8_t
+{
+    LEFT=0,
+    CENTER=1,
+    RIGHT=2
+};
+
 enum class ENTITY_TYPE : uint8_t
 {
     SHAPE, // data: shape; shape data...
-    SPRITE,
-    LINE,
-    TEXT, // data: font, text buffer pos (16 bit), text len (16 bit)
+    SPRITE, // data: buffer start(16 bit), buffer len(16 bit)
+    LINE, // data: color, width. pos is p1 size is p2
+    TEXT, // data: font, text buffer pos (16 bit), text len (16 bit), alignment
 };
 
 enum class SHAPE : uint8_t
 {
     CIRCLE, // data: border colour; fill colour
     RECTANGLE, // data: border colour; fill colour
-    TRIANGLE, // data: border colour; fill colour; x y z positions (multiplied by size)
+    TRIANGLE, // data: fill colour; x y z positions (8 bit, will be multiplied by size), center
 };
 
 struct PACK Entity // 24 bytes

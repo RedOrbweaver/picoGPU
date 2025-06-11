@@ -247,9 +247,64 @@ void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, v
 
     }
 }
-void DrawTriangle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> size, vec2<int> p0, vec2<int> p1, vec2<int> p2)
+
+float TriangleArea(int x1, int y1, int x2, int y2, int x3, int y3)
 {
+   return abs((x1*(y2-y3) + x2*(y3-y1)+ x3*(y1-y2))/2.0);
+}
+
+/* Stolen from stackoverflow. A function to check whether point P(x, y) lies inside the triangle formed 
+   by A(x1, y1), B(x2, y2) and C(x3, y3) */
+bool IsInsideTriangle(float A, int x1, int y1, int x2, int y2, int x3, int y3, int x, int y)
+{   
+   /* Calculate area of triangle PBC */  
+   float A1 = TriangleArea (x, y, x2, y2, x3, y3);
+
+   /* Calculate area of triangle PAC */  
+   float A2 = TriangleArea (x1, y1, x, y, x3, y3);
+
+   /* Calculate area of triangle PAB */   
+   float A3 = TriangleArea (x1, y1, x2, y2, x, y);
+
+   /* Check if sum of A1, A2 and A3 is same as A */
+   return (A == A1 + A2 + A3);
+}
+
+void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int> size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centertriangle)
+{
+    p0 += pos;
+    p1 += pos;
+    p2 += pos;
+    vec2<int> center = (p0+p1+p2)/vec2<int>{3, 3};
+    p0 = ((p0-center)*size) + center;
+    p1 = ((p1-center)*size) + center;
+    p2 = ((p2-center)*size) + center;
+    vec2<int> topl = {std::min({p0.x, p1.x, p0.x}), std::min({p0.y, p1.y, p2.y})};
+    vec2<int> botr = {std::max({p0.x, p1.x, p2.x}), std::max({p0.y, p1.y, p2.y})};
     
+
+    if(centertriangle)
+    {
+        vec2<int> dif = (botr-topl)/vec2<int>{2, 2};
+        topl -= dif;
+        botr -= dif;
+        p0 -= dif;
+        p1 -= dif; 
+        p2 -= dif;
+    }
+
+    /* Calculate area of triangle ABC */
+    float A = TriangleArea (p0.x, p0.y, p1.x, p1.y, p2.x, p2.y);
+    for(int y = topl.y; y < botr.y; y++)
+    {
+        for(int x = topl.x; x < botr.x; x++)
+        {
+            if(IsInsideTriangle(A, p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, x, y))
+            {
+                SetPixel(context, fill, {x, y});
+            }
+        }
+    }
 }
 
 const mf_font_s* current_font;
@@ -266,7 +321,7 @@ uint8_t CharacterCallback(int16_t x, int16_t y, mf_char character, void* state)
     return mf_render_character(current_font, x, y, character, &PixelCallback, state);
 }
 
-void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint16_t bufstart, uint16_t len)
+void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint16_t bufstart, uint16_t len, TEXT_ALIGNMENT alignment)
 {
     static const mf_font_s* fonts[] = {&mf_rlefont_DejaVuSans12.font, &mf_rlefont_DejaVuSans12bw.font, 
         &mf_rlefont_DejaVuSerif16.font, &mf_rlefont_DejaVuSerif32.font, &mf_bwfont_fixed_5x8.font,
@@ -284,7 +339,7 @@ void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint1
 
     current_font = fonts[(int)font];
 
-    mf_render_aligned(current_font, pos.x, pos.y, MF_ALIGN_LEFT, text_buffer + bufstart, len, &CharacterCallback, (void*)&context);
+    mf_render_aligned(current_font, pos.x, pos.y, (mf_align_t)alignment, text_buffer + bufstart, len, &CharacterCallback, (void*)&context);
 }
 
 
@@ -305,11 +360,15 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
                 }
                 case SHAPE::RECTANGLE:
                 {
-                    DrawRectangle(context, entity.data[1], entity.data[2], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y}, entity.rotation);
+                    DrawRectangle(context, entity.data[1], entity.data[2], {entity.pos.x, entity.pos.y}, 
+                        {entity.size.x, entity.size.y}, entity.rotation);
                     break;
                 }
                 case SHAPE::TRIANGLE:
                 {
+                    DrawTriangle(context, entity.data[1], {entity.pos.x, entity.pos.y}, 
+                        {entity.size.x, entity.size.y}, {entity.data[2], entity.data[3]}, 
+                        {entity.data[4], entity.data[5]}, {entity.data[6], entity.data[7]}, entity.data[8]);
                     break;
                 }
                 default:
@@ -319,11 +378,22 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
             }
             break;
         };
-        case ENTITY_TYPE::TEXT:
+        case ENTITY_TYPE::SPRITE:
         {
-            DrawText(context, entity.pos, (FONT)entity.data[0], *(uint16_t*)(entity.data + 1), *(uint16_t*)(entity.data + 3));
+
             break;
         }
+        case ENTITY_TYPE::LINE:
+        {
+
+            break;
+        }
+        case ENTITY_TYPE::TEXT:
+        {
+            DrawText(context, entity.pos, (FONT)entity.data[0], *(uint16_t*)(entity.data + 1), *(uint16_t*)(entity.data + 3), (TEXT_ALIGNMENT)*(entity.data + 5));
+            break;
+        }
+
         default:
         {
             printf("Invalid entity type!: %i\n", (int)entity.type);
@@ -651,10 +721,18 @@ int main()
     crect.type = ENTITY_TYPE::SHAPE;
     crect.layer = 1;
     crect.pos = {uint16_t(lines_x/2), uint16_t(lines_y/2)};
-    crect.size = {50, 25};
-    crect.data[0] = (uint8_t)SHAPE::RECTANGLE;
-    crect.data[1] = 0;
-    crect.data[2] = 200;
+    crect.size = {1, 1};
+    crect.data[0] = (uint8_t)SHAPE::TRIANGLE;
+    crect.data[1] = 200;
+
+    crect.data[2] = 40;
+    crect.data[3] = 0;
+
+    crect.data[4] = 0;
+    crect.data[5] = 80;
+
+    crect.data[6] = 80;
+    crect.data[7] = 80;
 
     while(true)
     {
