@@ -1,7 +1,5 @@
 #include "hmain.hpp"
 
-#include "fonts.h"
-#include "mcufont.h"
 
 PAL_DRIVER* driver;
 int dmamemcpychan1;
@@ -76,17 +74,6 @@ void dmawaitformemcopies()
     dmawaitcpy4();
 }
 
-template<typename T>
-T SQ(T v)
-{
-    return v * v; 
-}
-template<typename T>
-T Distance(T x0, T y0, T x1, T y1)
-{
-    return sqrt(SQ(x1-x0) + SQ(y1-y0));
-}
-
 float ReadTemperature()
 {
     adc_select_input(4);
@@ -129,218 +116,10 @@ void InitRendering()
         entity_buffer[i].visible = false;
 }
 
-inline void SetPixel(const ScreenContext& context, uint8_t val, vec2<int> pos)
-{
-    context.data[pos.y*context.screen_size.x + pos.x] = val;
-}
-inline void SetPixelSafe(const ScreenContext& context, uint8_t val, vec2<int> pos)
-{
-    if(pos.x >= context.screen_size.x || pos.x < 0)
-        return;
-    if(pos.y >= context.screen_size.y || pos.y < 0)
-        return;
-    SetPixel(context, val, pos);
-}
 
-void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> radius, uint8_t rotation)
-{
-    int mx = std::max(radius.x, radius.y);
 
-    if(radius.x == radius.y || rotation == 0)
-    {
-        int lmxx = std::min(pos.x+radius.x, context.screen_size.x);
-        int lmxy = std::min(pos.y+radius.y, context.screen_size.y);
-        int lmnx = std::max(pos.x-radius.x, 0);
-        int lmny = std::max(pos.y-radius.y, 0);
 
-        if(radius.x == radius.y)
-        {
-            for(int i = lmnx; i < lmxx; i++)
-            {
-                for(int ii = lmny; ii < lmxy; ii++)
-                {
-                    int dist = Distance(float(i), float(ii), float(pos.x), float(pos.y));
-                    if(dist <= mx)
-                    {
-                        if(dist == mx || dist == mx-1)
-                            SetPixel(context, border, {i, ii});
-                        else 
-                            SetPixel(context, fill, {i, ii});
-                    }    
-                }
-            }
-        }
-        else
-        {
-            for(int i = lmnx; i < lmxx; i++)
-            {
-                for(int ii = lmny; ii < lmxy; ii++)
-                {
-                    float d = SQ(float(i)-float(pos.x)) / SQ(float(radius.x)) + SQ(float(ii)-float(pos.y)) / SQ(float(radius.y));
-                    if(d <= 1)
-                    {
-                        if(d < 0.99)
-                            SetPixel(context, fill, {i, ii});   
-                        else
-                            SetPixel(context, border, {i, ii});
-                    }
-                }
-            }
-        }
-    }
-    else
-    {
-        float rot = M_PI*float(rotation)/255.0f;
 
-        int lmxx = std::min(pos.x+mx, context.screen_size.x);
-        int lmxy = std::min(pos.y+mx, context.screen_size.y);
-        int lmnx = std::max(pos.x-mx, 0);
-        int lmny = std::max(pos.y-mx, 0);
-
-        for(int i = lmnx; i < lmxx; i++)
-            {
-                for(int ii = lmny; ii < lmxy; ii++)
-                {
-                    float d = SQ((float(i)-float(pos.x))*cos(rot) + (float(ii)-float(pos.y))*sin(rot))/SQ(float(radius.x)) +
-                        SQ((float(i)-float(pos.x))*sin(rot) - (float(ii)-float(pos.y))*cos(rot))/SQ(float(radius.y));
-                    if(d <= 1)
-                    {
-                        if(d < 0.99)
-                            SetPixel(context, fill, {i, ii});   
-                        else
-                            SetPixel(context, border, {i, ii});
-                    }
-                }
-            }
-    }
-}
-void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> size, uint8_t rotation)
-{
-    if(rotation == 0)
-    {
-        size.x -= 1;
-        size.y -= 1;
-        pos.x += 1;
-        pos.y += 1;
-        for(int i = std::max(0, pos.x-size.x/2); i < std::min(context.screen_size.x, pos.x+size.x/2); i++)
-        {
-            for(int ii = std::max(0, pos.y-size.y/2); ii < std::min(context.screen_size.y, pos.y+size.y/2); ii++)
-            {
-                SetPixel(context, fill, {i, ii});
-            }
-        }
-        size.x += 1;
-        size.y += 1;
-        pos.x -= 1;
-        pos.y -= 1;
-        for(int i = 0; i < size.x; i++)
-            SetPixel(context, border, {i+pos.x-size.x/2, pos.y-size.y/2});
-        for(int i = 0; i < size.x; i++)
-            SetPixel(context, border, {i+pos.x-size.x/2, pos.y+size.y/2});
-        for(int i = 0; i < size.y; i++)
-            SetPixel(context, border, {pos.x-size.x/2, i+pos.y-size.y/2});
-        for(int i = 0; i < size.y; i++)
-            SetPixel(context, border, {pos.x+size.x/2, i+pos.y-size.y/2});
-    }
-    else
-    {
-
-    }
-}
-
-float TriangleArea(int x1, int y1, int x2, int y2, int x3, int y3)
-{
-   return abs((x1*(y2-y3) + x2*(y3-y1)+ x3*(y1-y2))/2.0);
-}
-
-/* Stolen from stackoverflow. A function to check whether point P(x, y) lies inside the triangle formed 
-   by A(x1, y1), B(x2, y2) and C(x3, y3) */
-bool IsInsideTriangle(float A, int x1, int y1, int x2, int y2, int x3, int y3, int x, int y)
-{   
-   /* Calculate area of triangle PBC */  
-   float A1 = TriangleArea (x, y, x2, y2, x3, y3);
-
-   /* Calculate area of triangle PAC */  
-   float A2 = TriangleArea (x1, y1, x, y, x3, y3);
-
-   /* Calculate area of triangle PAB */   
-   float A3 = TriangleArea (x1, y1, x2, y2, x, y);
-
-   /* Check if sum of A1, A2 and A3 is same as A */
-   return (A == A1 + A2 + A3);
-}
-
-void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int> size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centertriangle)
-{
-    p0 += pos;
-    p1 += pos;
-    p2 += pos;
-    vec2<int> center = (p0+p1+p2)/vec2<int>{3, 3};
-    p0 = ((p0-center)*size) + center;
-    p1 = ((p1-center)*size) + center;
-    p2 = ((p2-center)*size) + center;
-    vec2<int> topl = {std::min({p0.x, p1.x, p0.x}), std::min({p0.y, p1.y, p2.y})};
-    vec2<int> botr = {std::max({p0.x, p1.x, p2.x}), std::max({p0.y, p1.y, p2.y})};
-    
-
-    if(centertriangle)
-    {
-        vec2<int> dif = (botr-topl)/vec2<int>{2, 2};
-        topl -= dif;
-        botr -= dif;
-        p0 -= dif;
-        p1 -= dif; 
-        p2 -= dif;
-    }
-
-    /* Calculate area of triangle ABC */
-    float A = TriangleArea (p0.x, p0.y, p1.x, p1.y, p2.x, p2.y);
-    for(int y = topl.y; y < botr.y; y++)
-    {
-        for(int x = topl.x; x < botr.x; x++)
-        {
-            if(IsInsideTriangle(A, p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, x, y))
-            {
-                SetPixel(context, fill, {x, y});
-            }
-        }
-    }
-}
-
-const mf_font_s* current_font;
-void PixelCallback(int16_t x, int16_t y, uint8_t count, uint8_t alpha, void* state)
-{
-    ScreenContext* context = (ScreenContext*)state;
-    for(int i = 0; i < count; i++)
-    {
-        context->data[y * context->screen_size.x + x + i] = 255-alpha;
-    }
-}
-uint8_t CharacterCallback(int16_t x, int16_t y, mf_char character, void* state)
-{
-    return mf_render_character(current_font, x, y, character, &PixelCallback, state);
-}
-
-void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint16_t bufstart, uint16_t len, TEXT_ALIGNMENT alignment)
-{
-    static const mf_font_s* fonts[] = {&mf_rlefont_DejaVuSans12.font, &mf_rlefont_DejaVuSans12bw.font, 
-        &mf_rlefont_DejaVuSerif16.font, &mf_rlefont_DejaVuSerif32.font, &mf_bwfont_fixed_5x8.font,
-        &mf_rlefont_fixed_7x14.font, &mf_rlefont_fixed_10x20.font};
-    if((uint8_t)font >= ArraySize(fonts))
-    {
-        printf("Invalid font %i\n", (int)font);
-        return;
-    }
-
-    if(bufstart + len > TEXT_BUFFER_SIZE)
-    {
-        printf("Out of text buffer range at %i for len %i\n", (int)bufstart, (int)len);
-    }
-
-    current_font = fonts[(int)font];
-
-    mf_render_aligned(current_font, pos.x, pos.y, (mf_align_t)alignment, text_buffer + bufstart, len, &CharacterCallback, (void*)&context);
-}
 
 
 
@@ -385,12 +164,17 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
         }
         case ENTITY_TYPE::LINE:
         {
-
+            DrawLine(context, entity.data[0], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y});
             break;
         }
         case ENTITY_TYPE::TEXT:
         {
             DrawText(context, entity.pos, (FONT)entity.data[0], *(uint16_t*)(entity.data + 1), *(uint16_t*)(entity.data + 3), (TEXT_ALIGNMENT)*(entity.data + 5));
+            break;
+        }
+        case ENTITY_TYPE::POINT:
+        {
+            SetPixelSafe(context, entity.data[0], {entity.pos.x, entity.pos.y});
             break;
         }
 
@@ -518,9 +302,50 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
             }
             break;
         }
+        case SOURCE::TEXTURE_BUFFER_SIZE:
+        {
+            uint32_t nsize = *(uint32_t*)data;
+            if(nsize != texture_buffer_size)
+            {
+                uint32_t freemem = GetFreeHeap() + texture_buffer_size;
+                if((freemem) < nsize)
+                {
+                    printf("Attempting to allocate a texture buffer which would not fit into memory! Free memory: %u Buffer size: %u\n", freemem, nsize);
+                    break;
+                }
+                if(texture_buffer != nullptr)
+                {
+                    delete[] texture_buffer;
+                }
+                texture_buffer_size = nsize;
+                texture_buffer = new uint8_t[nsize];
+            }
+            break;
+        }
+        case SOURCE::TEXTURE0:
+        case SOURCE::TEXTURE1:
+        {
+            uint32_t address = uint16_t(address0) << 8 | uint16_t(address1);
+            if(source == SOURCE::TEXTURE1)
+            {
+                address += 65536;
+            }
+            if(texture_buffer == nullptr)
+            {
+                printf("Attempting to write to texture buffer before initializing it\n");
+                break;
+            }
+            if(address + len > texture_buffer_size)
+            {
+                printf("Attempting to write outside the texture buffer bounds at %u for %i\n", address, (int)len);
+                break;
+            }
+            memcpy(texture_buffer + address, data, len);
+            break;
+        }
         case SOURCE::INFO:
         {
-            printf("Writing to INFO not supported!\n");
+            printf("Writing to INFO is not supported!\n");
             break;
         }
         default:
@@ -634,7 +459,7 @@ uint8_t I2CGetNextByte()
         {
             if(i2c_state.data_pos >= sizeof(Info))
             {
-                printf("Out of bounds read to info at %i!\n", (int)i2c_state.data_pos);
+                printf("Out of bounds read of info at %i!\n", (int)i2c_state.data_pos);
                 return 0xFF;
             }
             value = ((uint8_t*)&information)[i2c_state.data_pos++];
@@ -643,6 +468,26 @@ uint8_t I2CGetNextByte()
         case SOURCE::TEST:
         {
             value = 0x13;
+            break;
+        }
+        case SOURCE::FRAME_NUMBER:
+        {
+            if(i2c_state.data_pos >= sizeof(Info::frame_number))
+            {
+                printf("Out of bounds read of frame number at %i!\n", (int)i2c_state.data_pos);
+                return 0xFF;
+            }
+            value = ((uint8_t*)&information.frame_number)[i2c_state.data_pos++];
+            break;
+        }
+        case SOURCE::TEXTURE_BUFFER_SIZE:
+        {
+            if(i2c_state.data_pos >= sizeof(Info::frame_number))
+            {
+                printf("Out of bounds read of texture buffer size at %i!\n", (int)i2c_state.data_pos);
+                return 0xFF;
+            }
+            value = ((uint8_t*)&texture_buffer_size)[i2c_state.data_pos++];
             break;
         }
     }
@@ -666,36 +511,8 @@ void I2CHandler()
     }
 }
 
-void core1_entry()
+void InitI2C()
 {
-    driver->Start();
-}
-
-int main()
-{
-    stdio_init_all();
-
-    printf("Starting picoGPU...\n");
-
-
-    printf("Setting sysclock to %i khz\n", sysclockkhz);
-    set_sys_clock_khz(sysclockkhz, true);
-    uart_set_baudrate(uart0, 115200);
-    printf("clock set successfully\n");
-
-
-    adc_init();
-    adc_set_temp_sensor_enabled(true);
-
-
-
-    driver = new PAL_DRIVER(RENDER_MODE::BW_408_304_DOUBLE_BUF, SAMPLING_MODE::SPP_1);
-
-    multicore_launch_core1(core1_entry);
-
-    InitRendering();
-
-
     i2c_init(i2c0, i2cspeed);
 
     gpio_set_function(PIN::I2C_SCL, GPIO_FUNC_I2C);
@@ -716,7 +533,42 @@ int main()
     irq_set_enabled(I2C0_IRQ, true);
 
     i2c_state = {};
+}
 
+void core1_entry()
+{
+    driver->Start();
+}
+
+void InitAll()
+{
+    printf("Setting sysclock to %i khz\n", sysclockkhz);
+    set_sys_clock_khz(sysclockkhz, true);
+    uart_set_baudrate(uart0, 115200);
+    printf("clock set successfully\n");
+
+    adc_init();
+    adc_set_temp_sensor_enabled(true);
+
+    driver = new PAL_DRIVER(RENDER_MODE::BW_408_304_DOUBLE_BUF, SAMPLING_MODE::SPP_1);
+
+    multicore_launch_core1(core1_entry);
+
+    InitRendering();
+
+    InitI2C();
+
+    information.frame_number = 0;
+}
+
+
+int main()
+{
+    stdio_init_all();
+
+    printf("Starting picoGPU...\n");
+
+    InitAll();
 
     uint8_t* video_data = driver->GetBackBuffer();
 
@@ -745,29 +597,41 @@ int main()
     // ball.data[1] = 128;
     // ball.data[2] = 0;
 
-    Entity& crect = entity_buffer[1];
-    crect.visible = true;
-    crect.type = ENTITY_TYPE::SHAPE;
-    crect.layer = 1;
-    crect.pos = {uint16_t(lines_x/2), uint16_t(lines_y/2)};
-    crect.size = {1, 1};
-    crect.data[0] = (uint8_t)SHAPE::TRIANGLE;
-    crect.data[1] = 200;
+    Entity& ctriangle = entity_buffer[1];
+    ctriangle.visible = true;
+    ctriangle.type = ENTITY_TYPE::SHAPE;
+    ctriangle.layer = 1;
+    ctriangle.pos = {uint16_t(lines_x/2), uint16_t(lines_y/2)};
+    ctriangle.size = {1, 1};
+    ctriangle.data[0] = (uint8_t)SHAPE::TRIANGLE;
+    ctriangle.data[1] = 200;
 
-    crect.data[2] = 40;
-    crect.data[3] = 0;
+    ctriangle.data[2] = 40;
+    ctriangle.data[3] = 0;
 
-    crect.data[4] = 0;
-    crect.data[5] = 80;
+    ctriangle.data[4] = 0;
+    ctriangle.data[5] = 80;
 
-    crect.data[6] = 80;
-    crect.data[7] = 80;
+    ctriangle.data[6] = 80;
+    ctriangle.data[7] = 80;
 
-    crect.data[8] = 1;
+    ctriangle.data[8] = 1;
+
+    Entity& cline = entity_buffer[2];
+    cline.visible = true;
+    cline.type = ENTITY_TYPE::LINE;
+    cline.layer = 1;
+    cline.pos = {50, 50};
+    cline.size = {200, 100};
+    cline.data[0] = 0;
 
     while(true)
     {
         uint64_t render_time = RenderFrame();
         information.last_render_time_us = render_time;
+        information.total_memory = GetTotalHeap();
+        information.free_memory = GetFreeHeap();
+        information.temperature = ReadTemperature();
+        information.frame_number++;
     }
 }

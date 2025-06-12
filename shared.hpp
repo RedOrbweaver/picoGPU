@@ -3,7 +3,7 @@
 
 
 constexpr uint sysclockkhz = 300000;
-constexpr uint i2cspeed = 100 * 1000;
+constexpr uint i2cspeed = 1000 * 1000;
 
 enum RENDER_MODE
 {
@@ -25,8 +25,11 @@ enum class SOURCE : uint8_t
     TEXT_BUFFER,
     BACKGROUND_SETTINGS,
     BACKGROUND_TEXTURE,
-    TEXTURE,
+    TEXTURE0,
+    TEXTURE1, // adds 65536 to the address to double the useable texture buffer size
     INFO,
+    TEXTURE_BUFFER_SIZE,
+    FRAME_NUMBER,
 };
 
 constexpr int N_ENTITIES = 64;
@@ -54,8 +57,9 @@ enum class ENTITY_TYPE : uint8_t
 {
     SHAPE, // data: shape; shape data...
     SPRITE, // data: buffer start(16 bit), buffer len(16 bit)
-    LINE, // data: color, width. pos is p1 size is p2
+    LINE, // pos is p0, size is p1; data: color
     TEXT, // data: font, text buffer pos (16 bit), text len (16 bit), alignment
+    POINT, // data: color
 };
 
 enum class SHAPE : uint8_t
@@ -106,4 +110,8 @@ struct PACK Settings
 struct PACK Info
 {
     uint64_t last_render_time_us;
+    uint32_t total_memory;
+    uint32_t free_memory;
+    float temperature;
+    uint32_t frame_number;
 };
