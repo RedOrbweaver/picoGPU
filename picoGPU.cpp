@@ -10,6 +10,8 @@ int dmamemsetchan4;
 dma_channel_config dmamemsetchan4c;
 
 
+Entity entities[N_ENTITIES];
+
 void dmawaitcpy1()
 {
     dma_channel_wait_for_finish_blocking(dmamemcpychan1);
@@ -112,7 +114,7 @@ void InitRendering()
     channel_config_set_write_increment(&dmamemsetchan4c, true);
     channel_config_set_enable(&dmamemsetchan4c, true);
 
-    for(int i = 0; i < N_ENTITIES; i++)
+    for(volatile int i = 0; i < N_ENTITIES; i++)
         entity_buffer[i].visible = false;
 }
 
@@ -123,78 +125,12 @@ void InitRendering()
 
 
 
-void DrawEntity(const Entity& entity, const ScreenContext& context)
-{
-    switch(entity.type)
-    {
-        case ENTITY_TYPE::SHAPE:
-        {
-            switch((SHAPE)entity.data[0])
-            {
-                case SHAPE::CIRCLE:
-                {
-                    DrawCircle(context, entity.data[1], entity.data[2], {entity.pos.x, entity.pos.y}, 
-                        {entity.size.x, entity.size.y}, entity.rotation);
-                    break;
-                }
-                case SHAPE::RECTANGLE:
-                {
-                    DrawRectangle(context, entity.data[1], entity.data[2], {entity.pos.x, entity.pos.y}, 
-                        {entity.size.x, entity.size.y}, entity.rotation);
-                    break;
-                }
-                case SHAPE::TRIANGLE:
-                {
-                    DrawTriangle(context, entity.data[1], {entity.pos.x, entity.pos.y}, 
-                        {entity.size.x, entity.size.y}, {entity.data[2], entity.data[3]}, 
-                        {entity.data[4], entity.data[5]}, {entity.data[6], entity.data[7]}, entity.data[8]);
-                    break;
-                }
-                default:
-                { 
-                    printf("Invalid shape!: %i\n", (int)entity.data[0]);
-                }
-            }
-            break;
-        };
-        case ENTITY_TYPE::SPRITE:
-        {
-
-            break;
-        }
-        case ENTITY_TYPE::LINE:
-        {
-            DrawLine(context, entity.data[0], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y});
-            break;
-        }
-        case ENTITY_TYPE::TEXT:
-        {
-            DrawText(context, entity.pos, (FONT)entity.data[0], *(uint16_t*)(entity.data + 1), *(uint16_t*)(entity.data + 3), (TEXT_ALIGNMENT)*(entity.data + 5));
-            break;
-        }
-        case ENTITY_TYPE::POINT:
-        {
-            SetPixelSafe(context, entity.data[0], {entity.pos.x, entity.pos.y});
-            break;
-        }
-
-        default:
-        {
-            printf("Invalid entity type!: %i\n", (int)entity.type);
-        }
-    }
-}
 
 uint64_t RenderFrame()
 {
     uint64_t start = get_time_us();
-    Entity entities[N_ENTITIES];
-
-    // Copy entities. Interrupts that may modify entities should wait for the copy to finish 
 
     dmamemcpy4(entities, entity_buffer, N_ENTITIES*sizeof(Entity), true);
-    
-    
 
     uint8_t* video_data = driver->GetBackBuffer();
 
@@ -219,22 +155,22 @@ uint64_t RenderFrame()
             printf("invalid background mode: %i\n", (int)background.mode);
         }
     }
+    dmawaitformemcopies();
 
     //background dma still running
     // sort entities by layer
     std::sort(entities, entities + N_ENTITIES, [](const Entity& a, const Entity& b){return a.layer > b.layer;});
 
-    // finish background dma copies
+    // finish background dma copy
     dmawaitmemset4();
-    dmawaitformemcopies();
 
-
-    for(int i = 0; i < N_ENTITIES; i++)
+    for(volatile int i = 0; i < N_ENTITIES; i++)
     {
         if(entities[i].visible)
+        {
             DrawEntity(entities[i], context);
+        }
     }
-
     uint64_t tmdf = get_time_us()-start;
     driver->SwapBuffersBlocking();
     return tmdf;

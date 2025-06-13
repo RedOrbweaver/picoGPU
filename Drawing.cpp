@@ -219,3 +219,82 @@ void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint1
 
     mf_render_aligned(current_font, pos.x, pos.y, (mf_align_t)alignment, text_buffer + bufstart, len, &CharacterCallback, (void*)&context);
 }
+void DrawSprite(const ScreenContext& context, vec2<uint16_t> pos16, vec2<uint16_t> size16, uint32_t start, uint32_t len, bool center)
+{
+    vec2<int> pos = {pos16.x, pos16.y};
+    vec2<int> size = {size16.x, size16.y};
+    if(center)
+        pos -= size/vec2<int>{2, 2};
+    if(pos.x >= context.screen_size.x || pos.y >= context.screen_size.y)
+        return;
+    pos = pos.max(0);
+    int hsize = size.x;
+    if(pos.x+size.x > context.screen_size.x)
+        hsize += context.screen_size.x - (pos.x+size.x);
+    for(int i = pos.y; i < std::min(context.screen_size.y, pos.y+size.y); i++)
+    {
+        memcpy(context.data + i*context.screen_size.x + pos.x, texture_buffer + start + ((i-pos.y)*size.x), hsize);
+    }
+}
+
+void DrawEntity(const Entity& entity, const ScreenContext& context)
+{
+    switch(entity.type)
+    {
+        case ENTITY_TYPE::SHAPE:
+        {
+            switch((SHAPE)entity.data[0])
+            {
+                case SHAPE::CIRCLE:
+                {
+                    DrawCircle(context, entity.data[1], entity.data[2], {entity.pos.x, entity.pos.y}, 
+                        {entity.size.x, entity.size.y}, entity.rotation);
+                    break;
+                }
+                case SHAPE::RECTANGLE:
+                {
+                    DrawRectangle(context, entity.data[1], entity.data[2], {entity.pos.x, entity.pos.y}, 
+                        {entity.size.x, entity.size.y}, entity.rotation);
+                    break;
+                }
+                case SHAPE::TRIANGLE:
+                {
+                    DrawTriangle(context, entity.data[1], {entity.pos.x, entity.pos.y}, 
+                        {entity.size.x, entity.size.y}, {entity.data[2], entity.data[3]}, 
+                        {entity.data[4], entity.data[5]}, {entity.data[6], entity.data[7]}, entity.data[8]);
+                    break;
+                }
+                default:
+                { 
+                    printf("Invalid shape!: %i\n", (int)entity.data[0]);
+                }
+            }
+            break;
+        };
+        case ENTITY_TYPE::LINE:
+        {
+            DrawLine(context, entity.data[0], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y});
+            break;
+        }
+        case ENTITY_TYPE::TEXT:
+        {
+            DrawText(context, entity.pos, (FONT)entity.data[0], *(uint16_t*)(entity.data + 1), *(uint16_t*)(entity.data + 3), (TEXT_ALIGNMENT)*(entity.data + 5));
+            break;
+        }
+        case ENTITY_TYPE::POINT:
+        {
+            SetPixelSafe(context, entity.data[0], {entity.pos.x, entity.pos.y});
+            break;
+        }
+        case ENTITY_TYPE::SPRITE:
+        {
+            DrawSprite(context, {entity.pos.x, entity.pos.y}, {entity.pos.x, entity.pos.y}, *(uint32_t*)entity.data, *(uint32_t*)(entity.data + 4), entity.data + 8);
+            break;
+        }
+
+        default:
+        {
+            printf("Invalid entity type!: %i\n", (int)entity.type);
+        }
+    }
+}

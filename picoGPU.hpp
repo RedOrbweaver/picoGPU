@@ -63,6 +63,8 @@ void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, v
 void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int>size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centertriangle);
 void DrawLine(const ScreenContext& context, uint8_t fill, vec2<int> p0, vec2<int> p1);
 void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint16_t bufstart, uint16_t len, TEXT_ALIGNMENT alignment);
+void DrawSprite(const ScreenContext& context, vec2<uint16_t> pos16, vec2<uint16_t> size16, uint32_t start, uint32_t len, bool center);
+void DrawEntity(const Entity& entity, const ScreenContext& context);
 
 inline i2c_state_machine i2c_state;
 inline uint64_t i2c_last_message = 0;

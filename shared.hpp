@@ -32,7 +32,7 @@ enum class SOURCE : uint8_t
     FRAME_NUMBER,
 };
 
-constexpr int N_ENTITIES = 64;
+constexpr int N_ENTITIES = 256;
 constexpr int TEXT_BUFFER_SIZE = 2048;
 
 enum class FONT : uint8_t
@@ -56,7 +56,7 @@ enum class TEXT_ALIGNMENT : uint8_t
 enum class ENTITY_TYPE : uint8_t
 {
     SHAPE, // data: shape; shape data...
-    SPRITE, // data: buffer start(16 bit), buffer len(16 bit)
+    SPRITE, // data: buffer start(32 bit), buffer len(32 bit), center; for now size and rotation are ignored
     LINE, // pos is p0, size is p1; data: color
     TEXT, // data: font, text buffer pos (16 bit), text len (16 bit), alignment
     POINT, // data: color
@@ -66,7 +66,7 @@ enum class SHAPE : uint8_t
 {
     CIRCLE, // data: border colour; fill colour
     RECTANGLE, // data: border colour; fill colour
-    TRIANGLE, // data: fill colour; x y z positions (8 bit, will be multiplied by size), center
+    TRIANGLE, // data: fill colour; x y z positions (8 bit, will be multiplied by size), center;
 };
 
 struct PACK Entity // 24 bytes

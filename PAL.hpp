@@ -296,7 +296,7 @@ class PAL_DRIVER
             {
                 LineSync();
                 dac_write(send_buffer, send_buffer_size, line_div);
-                sleep_us(52);                
+                sleep_us(52);              
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
