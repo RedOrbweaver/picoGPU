@@ -44,9 +44,13 @@ class PAL_DRIVER
 
     uint8_t zeroes[4] = {0};
 
-    pio_hw_t* pio;
-    int sm;
+    pio_hw_t* dac_pio;
+    int dac_sm;
     uint dmachan;
+
+    pio_hw_t* sync_pio;
+    int sync_sm;
+
 
 
     uint64_t cmptm = 0;
@@ -76,6 +80,29 @@ class PAL_DRIVER
         // join the FIFO buffers to get more DMA throughput?
         // we use the transmit only so join RX to the TX?
         sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+
+        pio_sm_init(pio, sm, offset, &c);
+        pio_sm_set_enabled(pio, sm, true);
+        pio_sm_clear_fifos(pio, sm);
+    }
+
+    static inline void sync_init(PIO pio, uint sm, uint offset, uint pin_not_sync, float divider) 
+    {
+
+        pio_sm_config c = sync_program_get_default_config(offset);
+
+        pio_gpio_init(pio, pin_not_sync);
+
+        
+        pio_sm_set_consecutive_pindirs(pio, sm, pin_not_sync, 1, true);
+        pio_sm_set_sideset_pins(pio, sm, pin_not_sync); 
+        sm_config_set_sideset(&c, 1, false, false);
+        sm_config_set_sideset_pin_base(&c, pin_not_sync);
+
+        sm_config_set_out_shift(&c, true, false, 32); // true - shift right, auto pull, # of bits
+
+        sm_config_set_clkdiv(&c, divider);
+        //sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
 
         pio_sm_init(pio, sm, offset, &c);
         pio_sm_set_enabled(pio, sm, true);
@@ -115,16 +142,31 @@ class PAL_DRIVER
 
     void pio_init()
     {
-        pio = pio0;
-        sm = pio_claim_unused_sm(pio0, true);
+        dac_pio = pio0;
+        dac_sm = pio_claim_unused_sm(dac_pio, true);
+        uint8_t offset = pio_add_program(dac_pio, &dac_out_program);
+        dac_program_init(dac_pio, dac_sm, offset, PIN::DAC_OUT[0], 1.0f);
 
-        uint8_t offset = pio_add_program(pio, &dac_out_program);
-        dac_program_init(pio, sm, offset, PIN::DAC_OUT[0], 1.0f);
+        // vertical_pio = pio0;
+        // vertical_sm = pio_claim_unused_sm(vertical_pio, true);
+        // offset = pio_add_program(vertical_pio, &vertical_sync_program);
+        // vertical_sync_init(vertical_pio, vertical_sm, offset, PIN::NOT_SYNC, 3.0f);
+
+        // line_pio = pio0;
+        // line_sm = pio_claim_unused_sm(line_pio, true);
+        // offset = pio_add_program(line_pio, &line_sync_program);
+        // line_sync_init(line_pio, line_sm, offset, PIN::NOT_SYNC, 3.0f);
+
+        sync_pio = pio0;
+        sync_sm = pio_claim_unused_sm(sync_pio, true);
+        offset = pio_add_program(sync_pio, &sync_program);
+        sync_init(sync_pio, sync_sm, offset, PIN::NOT_SYNC, 3.0f);
+
     }
     void dac_init()
     {
         pio_init();
-        dma_init(pio, sm);
+        dma_init(dac_pio, dac_sm);
     }
 
     void dac_write(uint8_t* data, uint len, float div)
@@ -132,7 +174,7 @@ class PAL_DRIVER
         assert(len % 4 == 0);
 
         dma_channel_wait_for_finish_blocking(dmachan);
-        pio_sm_set_clkdiv(pio, sm, div);
+        pio_sm_set_clkdiv(dac_pio, dac_sm, div);
         dma_channel_set_trans_count(dmachan, len/4, false);
         dma_channel_set_read_addr(dmachan, data, true);
     }
@@ -193,13 +235,10 @@ class PAL_DRIVER
         dac_send_array(zeroes, div);
         for(int i = 0; i < n; i++)
         {
-            //dac_send_array(short_sync, div);
-            gpio_put(PIN::NOT_SYNC, 0);
-            //busy_wait_at_least_cycles(SHORT_SYNC_LOW_NS/CLOCK_LEN_NS);
-            sleep_us(2);
-            gpio_put(PIN::NOT_SYNC, 1);
-            //busy_wait_at_least_cycles(SHORT_SYNC_HIGH_NS/CLOCK_LEN_NS);
-            sleep_us(60);
+            pio_sm_put_blocking(sync_pio, sync_sm, 0);
+            pio_sm_put_blocking(sync_pio, sync_sm, SHORT_SYNC_LOW_NS/10 - 2);
+            pio_sm_put_blocking(sync_pio, sync_sm, SHORT_SYNC_HIGH_NS/10 - 2);
+            pio_sm_get_blocking(sync_pio, sync_sm);
         }
     }
     void LongSync(int n)
@@ -207,24 +246,17 @@ class PAL_DRIVER
         dac_send_array(zeroes, div);
         for(int i = 0; i < n; i++)
         {
-            //dac_send_array(long_sync, div);
-            gpio_put(PIN::NOT_SYNC, 0);
-            //busy_wait_at_least_cycles(LONG_SYNC_LOW_NS/CLOCK_LEN_NS);
-            sleep_us(59);
-            gpio_put(PIN::NOT_SYNC, 1);
-            sleep_us(5);
-            //busy_wait_at_least_cycles(LONG_SYNC_HIGH_NS/CLOCK_LEN_NS);
+            pio_sm_put_blocking(sync_pio, sync_sm, 0);
+            pio_sm_put_blocking(sync_pio, sync_sm, LONG_SYNC_LOW_NS/10 - 2);
+            pio_sm_put_blocking(sync_pio, sync_sm, LONG_SYNC_HIGH_NS/10 - 2);
+            pio_sm_get_blocking(sync_pio, sync_sm);
         }
     }
     void LineSync()
     {
         dac_send_array(zeroes, div);
-        gpio_put(PIN::NOT_SYNC, 1);
-        sleep_us(1);
-        gpio_put(PIN::NOT_SYNC, 0);
-        sleep_us(6);
-        gpio_put(PIN::NOT_SYNC, 1);
-        sleep_us(4);
+        pio_sm_put(sync_pio, sync_sm, 1);
+        pio_sm_get_blocking(sync_pio, sync_sm);
     }
 
     void LoopInterlaced()
@@ -319,7 +351,7 @@ class PAL_DRIVER
 
         dac_init();
 
-        init_out({PIN::NOT_SYNC}, true);
+        //init_out({PIN::NOT_SYNC}, true);
         
         if(interlaced)
             LoopInterlaced();

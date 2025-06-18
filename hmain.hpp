@@ -25,6 +25,7 @@
 
 #include "redpicolib/RedPicoLib.hpp"
 #include "dac_out.pio.h"
+#include "sync.pio.h"
 
 
 namespace PIN

@@ -59,10 +59,10 @@ inline void SetPixelSafe(const ScreenContext& context, uint8_t val, vec2<int> po
 }
 
 
-inline void sleep_ns(float ns)
-{
-    busy_wait_at_least_cycles(ns/3.33333f*0.7428f);
-}
+// inline void sleep_ns(float ns)
+// {
+//     busy_wait_at_least_cycles(ns/3.33333f*0.7428f);
+// }
 
 void dmawaitcpy1();
 void dmawaitcpy4();

@@ -1,0 +1,46 @@
+; Assuming 10ns/cycle
+.program sync
+.side_set 1
+
+.wrap_target
+pull block side 1 ; wait for a signal
+
+mov x, osr side 1 ; 10 ns
+
+jmp !x vertical_sync side 1 ; 10 ns
+
+; front porch 1650 ns
+set x 15 side 1 [12] ; 130 ns
+front_porch_loop:
+jmp x-- front_porch_loop side 1 [9] ; 1500 ns
+
+; sync 4700 ns
+set x 29 side 0 [5] ; 60ns
+sync_loop:
+jmp x-- sync_loop side 0 [15] ; 4640 ns
+
+; back porch 5700ns (5720ns)
+
+set x 30 side 1 ; 10 ns
+back_porch_loop:
+nop side 1 [2] ; 900ns
+jmp x-- back_porch_loop side 1 [15] ; 4800ns
+
+jmp end side 1
+
+vertical_sync:
+
+pull block side 1
+
+mov x, osr side 0
+loop_low:
+jmp x-- loop_low side 0
+
+pull block side 1
+mov x, osr side 1
+loop_high:
+jmp x-- loop_high side 1
+
+end:
+push side 1 ; 10 ns, allows for synchronization
+.wrap
