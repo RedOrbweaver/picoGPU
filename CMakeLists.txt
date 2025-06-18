@@ -43,7 +43,7 @@ pico_sdk_init()
 file(GLOB_RECURSE DECODER "${CMAKE_CURRENT_LIST_DIR}/mcufont/decoder/*.c")
 file(GLOB_RECURSE ENCODER "${CMAKE_CURRENT_LIST_DIR}/mcufont/encoder/*.c")
 
-add_executable(picoGPU picoGPU.cpp Drawing.cpp ${DECODER} ${ENCODER})
+add_executable(picoGPU picoGPU.cpp Drawing.cpp I2CHandling.cpp ${DECODER} ${ENCODER})
 
 pico_set_program_name(picoGPU "picoGPU")
 pico_set_program_version(picoGPU "0.1")

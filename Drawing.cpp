@@ -105,7 +105,7 @@ void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, v
     }
     else
     {
-
+        
     }
 }
 
