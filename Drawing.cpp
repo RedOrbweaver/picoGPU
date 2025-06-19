@@ -75,37 +75,110 @@ void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2
             }
     }
 }
+void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t rotation)
+{
+    if(rotation == 0)
+    {
+        for(int i = 0; i < size.x; i++)
+        {
+            if(pos.x + size.x >= context.screen_size.x)
+                break;
+            if(pos.x+i < 0)
+                continue;
+            int sy = size.y/2;
+            int px = i - sy;
+            int p = sqrt(sy*sy - px*px);
+            int pt = pos.y + p;
+            int pb = pos.y - p;
+            if(pt >= 0 && pt < context.screen_size.y)
+                SetPixel(context, color, {i+pos.x, pt});
+            if(pb >= 0 && pt < context.screen_size.y)
+                SetPixel(context, color, {i+pos.x, pb});
+        }
+    }    
+}
+vec2<int> RotatePoint(vec2<int> point, vec2<int> center, float rotation)
+{
+    float sint = sin(rotation);
+    float cost = cos(rotation);
+    return 
+    {
+        cost*(point.x - center.x) - sint * (point.y - center.y) + center.x,
+        sint * (point.x - center.x) + cost * (point.y - center.y) + center.y
+    };
+}
+vec2<int> RotatePoint(vec2<int> point, vec2<int> center, uint8_t rotation)
+{
+    return RotatePoint(point, center, float(M_PI*float(rotation)/255.0f));
+}
 void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> size, uint8_t rotation)
 {
     if(rotation == 0)
     {
-        size.x -= 1;
-        size.y -= 1;
-        pos.x += 1;
-        pos.y += 1;
-        for(int i = std::max(0, pos.x-size.x/2); i < std::min(context.screen_size.x, pos.x+size.x/2); i++)
+        if(size.x > 2 && size.y > 2)
         {
-            for(int ii = std::max(0, pos.y-size.y/2); ii < std::min(context.screen_size.y, pos.y+size.y/2); ii++)
+            for(int i = std::max(0, pos.x-size.x/2); i < std::min(context.screen_size.x, pos.x+size.x/2); i++)
             {
-                SetPixel(context, fill, {i, ii});
+                for(int ii = std::max(0, pos.y-size.y/2); ii < std::min(context.screen_size.y, pos.y+size.y/2); ii++)
+                {
+                    SetPixel(context, fill, {i, ii});
+                }
             }
         }
-        size.x += 1;
-        size.y += 1;
-        pos.x -= 1;
-        pos.y -= 1;
-        for(int i = 0; i < size.x; i++)
-            SetPixel(context, border, {i+pos.x-size.x/2, pos.y-size.y/2});
-        for(int i = 0; i < size.x; i++)
-            SetPixel(context, border, {i+pos.x-size.x/2, pos.y+size.y/2});
-        for(int i = 0; i < size.y; i++)
-            SetPixel(context, border, {pos.x-size.x/2, i+pos.y-size.y/2});
-        for(int i = 0; i < size.y; i++)
-            SetPixel(context, border, {pos.x+size.x/2, i+pos.y-size.y/2});
+        DrawEmptyRectangle(context, border, pos, size, rotation);
     }
     else
     {
+        if(size.x <= 2 || size.y <= 2)
+            return;
+
+        float rot = M_PI*float(rotation)/255.0f;
+
+        vec2<int> TL = {pos.x - size.x/2, pos.y - size.y/2};
+        vec2<int> TR = {pos.x + size.x/2, pos.y - size.y/2};
+        vec2<int> BL = {pos.x - size.x/2, pos.y + size.y/2};
+        vec2<int> BR = {pos.x + size.x/2, pos.y + size.y/2 };
+
+        TL = RotatePoint(TL, pos, rotation);
+        TR = RotatePoint(TR, pos, rotation);
+        BL = RotatePoint(BL, pos, rotation);
+        BR = RotatePoint(BR, pos, rotation);
+
         
+        DrawTriangle(context, fill, {0,0}, {1,1}, TL, TR, BR, false, 0);
+        DrawTriangle(context, fill, {0,0}, {1,1}, TL, BL, BR, false, 0);
+        DrawEmptyRectangle(context, border, pos, size, rotation);
+    }
+}
+void DrawEmptyRectangle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t rotation)
+{
+    if(rotation == 0)
+    {
+        for(int i = std::max(pos.x-size.x/2, 0); i < std::min(pos.x+size.x/2, context.screen_size.x); i++)
+            SetPixel(context, color, {i, pos.y-size.y/2});
+        for(int i = std::max(pos.x-size.x/2, 0); i < std::min(pos.x+size.x/2, context.screen_size.x); i++)
+            SetPixel(context, color, {i, pos.y+size.y/2});
+        for(int i = std::max(pos.y-size.y/2, 0); i < std::min(pos.y+size.y/2, context.screen_size.y); i++)
+            SetPixel(context, color, {pos.x-size.x/2, i});
+        for(int i = std::max(pos.y-size.y/2, 0); i < std::min(pos.y+size.y/2, context.screen_size.y); i++)
+            SetPixel(context, color, {pos.x+size.x/2, i});
+    }
+    else
+    {
+        vec2<int> TL = {pos.x - size.x/2, pos.y - size.y/2};
+        vec2<int> TR = {pos.x + size.x/2, pos.y - size.y/2};
+        vec2<int> BL = {pos.x - size.x/2, pos.y + size.y/2};
+        vec2<int> BR = {pos.x + size.x/2, pos.y + size.y/2 };
+
+        TL = RotatePoint(TL, pos, rotation);
+        TR = RotatePoint(TR, pos, rotation);
+        BL = RotatePoint(BL, pos, rotation);
+        BR = RotatePoint(BR, pos, rotation);
+
+        DrawLine(context, color, TL, TR, 0);
+        DrawLine(context, color, TR, BR, 0);
+        DrawLine(context, color, BR, BL, 0);
+        DrawLine(context, color, BL, TL, 0);
     }
 }
 
@@ -114,33 +187,50 @@ int TriangleArea(int x1, int y1, int x2, int y2, int x3, int y3)
    return abs((x1*(y2-y3) + x2*(y3-y1)+ x3*(y1-y2))/2);
 }
 
-/* Stolen from stackoverflow. A function to check whether point P(x, y) lies inside the triangle formed 
-   by A(x1, y1), B(x2, y2) and C(x3, y3) */
 bool IsInsideTriangle(int A, int x1, int y1, int x2, int y2, int x3, int y3, int x, int y)
 {   
-   /* Calculate area of triangle PBC */  
    int A1 = TriangleArea (x, y, x2, y2, x3, y3);
-
-   /* Calculate area of triangle PAC */  
    int A2 = TriangleArea (x1, y1, x, y, x3, y3);
-
-   /* Calculate area of triangle PAB */   
    int A3 = TriangleArea (x1, y1, x2, y2, x, y);
-
-   /* Check if sum of A1, A2 and A3 is same as A */
-   return (A == A1 + A2 + A3);
+   int sum = A1 + A2 + A3;
+   return (abs(A - sum) < 2);
 }
 
-void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int> size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centertriangle)
+bool IsTriangleClockwise(vec2<int> p0, vec2<int> p1, vec2<int> p2)
 {
+    return ((p1.x-p0.x) * (p2.y - p0.y) - (p1.y - p0.y) * (p2.x - p0.x)) < 0;
+}
+int edgeFunction(vec2<int> a, vec2<int> b, vec2<int> c)
+{
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int> size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centertriangle, uint8_t rotation)
+{
+    if(edgeFunction(p0, p1, p2) < 0)
+    {
+        std::swap(p1, p2);
+        //std::swap(p1, p2);
+    }
+    printf("%i\n", edgeFunction(p0, p1, p2));
+
     p0 += pos;
     p1 += pos;
     p2 += pos;
+
     vec2<int> center = (p0+p1+p2)/vec2<int>{3, 3};
     p0 = ((p0-center)*size) + center;
     p1 = ((p1-center)*size) + center;
     p2 = ((p2-center)*size) + center;
-    vec2<int> topl = {std::min({p0.x, p1.x, p0.x}), std::min({p0.y, p1.y, p2.y})};
+
+    if(rotation != 0)
+    {
+        p0 = RotatePoint(p0, center, rotation);
+        p1 = RotatePoint(p1, center, rotation);
+        p2 = RotatePoint(p2, center, rotation);
+    }
+
+
+    vec2<int> topl = {std::min({p0.x, p1.x, p2.x}), std::min({p0.y, p1.y, p2.y})};
     vec2<int> botr = {std::max({p0.x, p1.x, p2.x}), std::max({p0.y, p1.y, p2.y})};
     
 
@@ -153,26 +243,35 @@ void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec
         p1 -= dif; 
         p2 -= dif;
     }
-
-    /* Calculate area of triangle ABC */
-    float A = TriangleArea (p0.x, p0.y, p1.x, p1.y, p2.x, p2.y);
     for(int y = std::max(0, topl.y); y < std::min(botr.y, context.screen_size.y); y++)
     {
         for(int x = std::max(0, topl.x); x < std::min(botr.x, context.screen_size.x); x++)
         {
-            if(IsInsideTriangle(A, p0.x, p0.y, p1.x, p1.y, p2.x, p2.y, x, y))
+
+            vec2<int> p = {x, y};
+            int ABP = edgeFunction(p0, p1, p);
+            int BCP = edgeFunction(p1, p2, p);
+            int CAP = edgeFunction(p2, p0, p);
+            if(ABP >= 0 && BCP >= 0 && CAP >= 0)
             {
                 SetPixel(context, fill, {x, y});
             }
         }
     }
 }
-void DrawLine(const ScreenContext& context, uint8_t fill, vec2<int> p0, vec2<int> p1)
+void DrawLine(const ScreenContext& context, uint8_t fill, vec2<int> p0, vec2<int> p1, uint8_t rotation)
 {
+    if(rotation != 0)
+    {
+        float rotation = M_PI*float(rotation)/255.0f;
+        vec2<int> center = (p0+p1)/vec2<int>{2,2};
+        p0 = RotatePoint(p0, center, rotation);
+        p1 = RotatePoint(p1, center, rotation);
+    }
     p0 = p0.min(context.screen_size).max(0);
     p1 = p1.min(context.screen_size).max(0);
     vec2<int> dif = p1-p0;
-    int len = sqrt(abs(dif.x*dif.y));
+    int len = sqrt(dif.x*dif.x + dif.y*dif.y);
 
     for(int i = 0; i < len; i++)
     {
@@ -213,6 +312,7 @@ void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint1
     if(bufstart + len > TEXT_BUFFER_SIZE)
     {
         printf("Out of text buffer range at %i for len %i\n", (int)bufstart, (int)len);
+        return;
     }
 
     current_font = fonts[(int)font];
@@ -251,17 +351,27 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
                         {entity.size.x, entity.size.y}, entity.rotation);
                     break;
                 }
+                case SHAPE::EMPTY_CIRCLE:
+                {
+                    DrawEmptyCircle(context, entity.data[1], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y}, entity.rotation);
+                    break;
+                }
                 case SHAPE::RECTANGLE:
                 {
                     DrawRectangle(context, entity.data[1], entity.data[2], {entity.pos.x, entity.pos.y}, 
                         {entity.size.x, entity.size.y}, entity.rotation);
                     break;
                 }
+                case SHAPE::EMPTY_RECTANGLE:
+                {
+                    DrawEmptyRectangle(context, entity.data[1], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y}, entity.rotation);
+                    break;
+                }
                 case SHAPE::TRIANGLE:
                 {
                     DrawTriangle(context, entity.data[1], {entity.pos.x, entity.pos.y}, 
                         {entity.size.x, entity.size.y}, {entity.data[2], entity.data[3]}, 
-                        {entity.data[4], entity.data[5]}, {entity.data[6], entity.data[7]}, entity.data[8]);
+                        {entity.data[4], entity.data[5]}, {entity.data[6], entity.data[7]}, entity.data[8], entity.rotation);
                     break;
                 }
                 default:
@@ -273,7 +383,7 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
         };
         case ENTITY_TYPE::LINE:
         {
-            DrawLine(context, entity.data[0], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y});
+            DrawLine(context, entity.data[0], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y}, entity.rotation);
             break;
         }
         case ENTITY_TYPE::TEXT:

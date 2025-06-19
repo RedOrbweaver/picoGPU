@@ -3,6 +3,7 @@
 
 inline Entity entity_buffer[N_ENTITIES];
 inline char text_buffer[TEXT_BUFFER_SIZE];
+inline vec2<int> geometry_buffer[GEOMETRY_BUFFER_SIZE];
 inline Background background;
 
 struct ScreenContext
@@ -70,12 +71,16 @@ void dmawaitmemset4();
 void dmawaitformemcopies();
 
 void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> radius, uint8_t rotation);
+void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t rotation);
 void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> size, uint8_t rotation);
-void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int>size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centertriangle);
-void DrawLine(const ScreenContext& context, uint8_t fill, vec2<int> p0, vec2<int> p1);
+void DrawEmptyRectangle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t rotation);
+void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int>size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centertriangle, uint8_t rotation);
+void DrawLine(const ScreenContext& context, uint8_t fill, vec2<int> p0, vec2<int> p1, uint8_t rotation);
 void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint16_t bufstart, uint16_t len, TEXT_ALIGNMENT alignment);
 void DrawSprite(const ScreenContext& context, vec2<uint16_t> pos16, vec2<uint16_t> size16, uint32_t start, uint32_t len, bool center);
 void DrawEntity(const Entity& entity, const ScreenContext& context);
+vec2<int> RotatePoint(vec2<int> point, vec2<int> center, uint8_t rotation);
+
 
 void I2CHandler();
 

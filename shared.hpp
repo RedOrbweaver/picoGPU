@@ -30,10 +30,12 @@ enum class SOURCE : uint8_t
     INFO,
     TEXTURE_BUFFER_SIZE,
     FRAME_NUMBER,
+    GEOMETRY,
 };
 
 constexpr int N_ENTITIES = 256;
 constexpr int TEXT_BUFFER_SIZE = 2048;
+constexpr int GEOMETRY_BUFFER_SIZE = 512;
 
 enum class FONT : uint8_t
 {
@@ -60,6 +62,9 @@ enum class ENTITY_TYPE : uint8_t
     LINE, // pos is p0, size is p1; data: color
     TEXT, // data: font, text buffer pos (16 bit), text len (16 bit), alignment
     POINT, // data: color
+    MULTI_POINT, // data: color, geometry buffer start, geometry buffer end
+    MULTI_LINE, // data: color, geometry buffer start, geometry buffer end
+    BEZIER, // data: color, geometry buffer start, geometry buffer end
 };
 
 enum class SHAPE : uint8_t
@@ -67,6 +72,8 @@ enum class SHAPE : uint8_t
     CIRCLE, // data: border colour; fill colour
     RECTANGLE, // data: border colour; fill colour
     TRIANGLE, // data: fill colour; x y z positions (8 bit, will be multiplied by size), center;
+    EMPTY_CIRCLE, // data: colour, center
+    EMPTY_RECTANGLE, // data: colour, center
 };
 
 struct PACK Entity // 24 bytes
@@ -110,6 +117,7 @@ struct PACK Settings
 struct PACK Info
 {
     uint64_t last_render_time_us;
+    uint32_t entities_drawn;
     uint32_t total_memory;
     uint32_t free_memory;
     float temperature;

@@ -232,7 +232,7 @@ class PAL_DRIVER
 
     void ShortSync(int n)
     {
-        dac_send_array(zeroes, div);
+        dac_write(zeroes, ArraySize(zeroes), div);
         for(int i = 0; i < n; i++)
         {
             pio_sm_put_blocking(sync_pio, sync_sm, 0);
@@ -243,7 +243,7 @@ class PAL_DRIVER
     }
     void LongSync(int n)
     {
-        dac_send_array(zeroes, div);
+        dac_write(zeroes, ArraySize(zeroes), div);
         for(int i = 0; i < n; i++)
         {
             pio_sm_put_blocking(sync_pio, sync_sm, 0);
@@ -254,7 +254,7 @@ class PAL_DRIVER
     }
     void LineSync()
     {
-        dac_send_array(zeroes, div);
+        dac_write(zeroes, ArraySize(zeroes), div);
         pio_sm_put(sync_pio, sync_sm, 1);
         pio_sm_get_blocking(sync_pio, sync_sm);
     }
@@ -327,11 +327,18 @@ class PAL_DRIVER
             for(int i = 0; i < lines_y; i++)
             {
                 LineSync();
+                volatile uint64_t start = get_time_us();
                 dac_write(send_buffer, send_buffer_size, line_div);
-                sleep_us(52);              
+
+                //sleep_us(52);       
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
+                dma_channel_wait_for_finish_blocking(dmachan);
+                while(!pio_sm_is_tx_fifo_empty(dac_pio, dac_sm))
+                    tight_loop_contents();
+                volatile uint64_t dif = get_time_us()-start;
+                //printf("%i: %llu\n", i, dif);       
             }
             mutex_exit(&non_blanking_mx);
             ShortSync(6);
@@ -419,5 +426,6 @@ class PAL_DRIVER
         send_buffer_size = lines_x*samples_per_pixel;
         send_buffer = new uint8_t[send_buffer_size];
         line_div = ((VISUAL_NS/float(lines_x))/CLOCK_LEN_NS)/float(samples_per_pixel);
+        //line_div = 39.17550626808100;
     }
 };

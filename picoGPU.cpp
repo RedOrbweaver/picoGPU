@@ -126,11 +126,14 @@ void InitRendering()
 
 
 
-uint64_t RenderFrame()
+uint64_t RenderFrame(uint32_t& entities_drawn)
 {
     uint64_t start = get_time_us();
 
+    entities_drawn = 0;
+
     dmamemcpy4(entities, entity_buffer, N_ENTITIES*sizeof(Entity), true);
+    //memcpy(entities, entity_buffer, N_ENTITIES*sizeof(Entity));
 
     uint8_t* video_data = driver->GetBackBuffer();
 
@@ -142,8 +145,10 @@ uint64_t RenderFrame()
     {
         case BACKGROUND_MODE::SOLID_SHADE:
         {
-            dmamemset4(context.data, background.value, context.screen_size.x*context.screen_size.y, true);
-            //memset(context.data, background.value, context.screen_size.x*context.screen_size.y);
+            if(context.screen_size.x*context.screen_size.y % 4 == 0)
+                dmamemset4(context.data, background.value, context.screen_size.x*context.screen_size.y, true);
+            else 
+                memset(context.data, background.value, context.screen_size.x*context.screen_size.y);
             break;
         }
         case BACKGROUND_MODE::TEXTURE:
@@ -169,6 +174,7 @@ uint64_t RenderFrame()
         if(entities[i].visible)
         {
             DrawEntity(entities[i], context);
+            entities_drawn++;
         }
     }
     uint64_t tmdf = get_time_us()-start;
@@ -271,15 +277,15 @@ int main()
     ctriangle.pos = {uint16_t(lines_x/2), uint16_t(lines_y/2)};
     ctriangle.size = {1, 1};
     ctriangle.data[0] = (uint8_t)SHAPE::TRIANGLE;
-    ctriangle.data[1] = 200;
+    ctriangle.data[1] = 0;
 
     ctriangle.data[2] = 40;
     ctriangle.data[3] = 0;
 
-    ctriangle.data[4] = 0;
+    ctriangle.data[4] = 80;
     ctriangle.data[5] = 80;
 
-    ctriangle.data[6] = 80;
+    ctriangle.data[6] = 0;
     ctriangle.data[7] = 80;
 
     ctriangle.data[8] = 1;
@@ -292,14 +298,52 @@ int main()
     cline.size = {200, 100};
     cline.data[0] = 0;
 
+    Entity& crect = entity_buffer[3];
+    crect.visible = true;
+    crect.type = ENTITY_TYPE::SHAPE;
+    crect.rotation = 50;
+    crect.layer = 2;
+    crect.pos = {50, 150};
+    crect.size = {40, 20};
+    crect.data[0] = (uint8_t)SHAPE::RECTANGLE;
+    crect.data[1] = 100;
+    crect.data[2] = 0;
+
+    Entity& cerec = entity_buffer[4];
+    cerec.visible = true;
+    cerec.type = ENTITY_TYPE::SHAPE;
+    cerec.rotation = 100;
+    cerec.layer = 2;
+    cerec.pos = {150, 200};
+    cerec.size = {40, 20};
+    cerec.data[0] = (uint8_t)SHAPE::EMPTY_RECTANGLE;
+    cerec.data[1] = 0;
+
+    Entity& cecirc = entity_buffer[5];
+    cecirc.visible = true;
+    cecirc.type = ENTITY_TYPE::SHAPE;
+    cecirc.rotation = 0;
+    cecirc.layer = 0;
+    cecirc.pos = {300, 200};
+    cecirc.size = {25, 25};
+    cecirc.data[0] = (uint8_t)SHAPE::EMPTY_CIRCLE;
+    cecirc.data[1] = 50;
+
+    vec2<int> tpoint = vec2<int>{0, 40} + vec2<int>{lines_x/2, lines_y/2};
+
     while(true)
     {
         // uint64_t start = get_time_us();
         // sleep_ns(52000);
         // uint64_t tdif = get_time_us() - start;
         //printf("%llu\n", tdif);
-        uint64_t render_time = RenderFrame();
+        crect.rotation++;
+        cerec.rotation++;
+        //ctriangle.rotation++;
+        uint32_t entities_drawn;
+        uint64_t render_time = RenderFrame(entities_drawn);
         information.last_render_time_us = render_time;
+        information.entities_drawn = entities_drawn;
         information.total_memory = GetTotalHeap();
         information.free_memory = GetFreeHeap();
         information.temperature = ReadTemperature();
