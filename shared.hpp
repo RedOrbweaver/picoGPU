@@ -62,21 +62,22 @@ enum class ENTITY_TYPE : uint8_t
     LINE, // pos is p0, size is p1; data: color
     TEXT, // data: font, text buffer pos (16 bit), text len (16 bit), alignment
     POINT, // data: color
-    MULTI_POINT, // data: color, geometry buffer start, geometry buffer end
-    MULTI_LINE, // data: color, geometry buffer start, geometry buffer end
-    BEZIER, // data: color, geometry buffer start, geometry buffer end
+    MULTI_POINT, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
+    MULTI_LINE, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
+    BEZIER, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
 };
 
 enum class SHAPE : uint8_t
 {
-    CIRCLE, // data: border colour; fill colour
-    RECTANGLE, // data: border colour; fill colour
-    TRIANGLE, // data: fill colour; x y z positions (8 bit, will be multiplied by size), center;
+    CIRCLE, // data: border colour; fill colour, center
+    RECTANGLE, // data: border colour; fill colour, center
+    TRIANGLE, // data: fill colour; x y z positions (16 bit signed, will be multiplied by size), center around zero;
+    MULTI_TRIANGLE, // data: fill, geometry buffer start (16 bit), geometry buffer end (16 bit), center around zero
     EMPTY_CIRCLE, // data: colour, center
     EMPTY_RECTANGLE, // data: colour, center
 };
 
-struct PACK Entity // 24 bytes
+struct PACK Entity // 28 bytes
 {
     // 4 bytes
     ENTITY_TYPE type;
@@ -89,7 +90,7 @@ struct PACK Entity // 24 bytes
     vec2<uint16_t> size;
 
     // 12 bytes
-    uint8_t data[12];
+    uint8_t data[16];
 };
 
 enum class BACKGROUND_MODE
@@ -106,7 +107,6 @@ struct PACK Background
     vec2<uint16_t> size;
     vec2<uint16_t> source_size;
     uint8_t value;
-    uint8_t* data;
 };
 
 struct PACK Settings

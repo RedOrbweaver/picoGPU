@@ -45,6 +45,11 @@ T Distance(T x0, T y0, T x1, T y1)
 {
     return sqrt(SQ(x1-x0) + SQ(y1-y0));
 }
+template<typename T>
+T Distance(vec2<T> a, vec2<T> b)
+{
+    return Distance(a.x, a.y, b.x, b.y);
+}
 
 inline void SetPixel(const ScreenContext& context, uint8_t val, vec2<int> pos)
 {
@@ -69,16 +74,18 @@ void dmawaitcpy1();
 void dmawaitcpy4();
 void dmawaitmemset4();
 void dmawaitformemcopies();
+void UpdateBackground();
 
-void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> radius, uint8_t rotation);
-void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t rotation);
-void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> size, uint8_t rotation);
-void DrawEmptyRectangle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t rotation);
-void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int>size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centertriangle, uint8_t rotation);
+void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> radius, uint8_t rotation, bool center);
+void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, bool center);
+void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> size, uint8_t rotation, bool center);
+void DrawEmptyRectangle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t rotation, bool center);
+void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int>size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centeraroundzero, uint8_t rotation);
 void DrawLine(const ScreenContext& context, uint8_t fill, vec2<int> p0, vec2<int> p1, uint8_t rotation);
 void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint16_t bufstart, uint16_t len, TEXT_ALIGNMENT alignment);
 void DrawSprite(const ScreenContext& context, vec2<uint16_t> pos16, vec2<uint16_t> size16, uint32_t start, uint32_t len, bool center);
 void DrawEntity(const Entity& entity, const ScreenContext& context);
+void DrawBezier(const ScreenContext& context, vec2<int> pos, uint8_t color, vec2<int>* points, int npoints, uint8_t rotation);
 vec2<int> RotatePoint(vec2<int> point, vec2<int> center, uint8_t rotation);
 
 
@@ -89,3 +96,4 @@ inline uint64_t i2c_last_message = 0;
 inline Info information;
 inline uint32_t texture_buffer_size = 0;
 inline uint8_t* texture_buffer = nullptr;
+inline uint8_t* background_texture_buffer = nullptr;

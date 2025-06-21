@@ -29,7 +29,7 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
                 break;
             }
             uint8_t* entdt = (uint8_t*)(entity_buffer + address0);
-            if(address1 + len > sizeof(Entity))
+            if((int)address1 + (int)len > sizeof(Entity))
             {
                 printf("Out of bounds write to an entity at %i for len %i!\n",(int)address1, (int)len);
                 break;
@@ -46,7 +46,7 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
             // see above
             dmawaitformemcopies();
 
-            uint16_t address = uint16_t(address0) << 8 | uint16_t(address1);
+            uint16_t address = uint16_t(address1) << 8 | uint16_t(address0);
             if(address + len > TEXT_BUFFER_SIZE)
             {
                 printf("Attempting to write to the text buffer beyond its bounds at %i for len %i\n", (int)address, (int)len);
@@ -103,6 +103,61 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
         case SOURCE::INFO:
         {
             printf("Writing to INFO is not supported!\n");
+            break;
+        }
+        case SOURCE::BACKGROUND_SETTINGS:
+        {
+            if(len != sizeof(Background))
+            {
+                printf("Invalid size for background %u\n", (uint32_t)len);
+                break;
+            }
+            memcpy(&background, data, sizeof(Background));
+            UpdateBackground();
+            break;
+        }
+        case SOURCE::BACKGROUND_TEXTURE:
+        {
+            uint32_t address = uint16_t(address1) << 8 | uint16_t(address0);
+            if(background.mode != BACKGROUND_MODE::TEXTURE)
+            {
+                printf("Background not set to texture mode\n");
+                break;
+            }
+            if(background_texture_buffer == nullptr)
+            {
+                printf("Background texture is nullptr\n");
+                break;
+            }
+            if(address + len > background.size.x*background.size.y)
+            {
+                printf("Attempting to write to background texture outside the bonds %u\n", address);
+                break;
+            }
+            memcpy(background_texture_buffer + address, data, len);
+            break;
+        }
+        case SOURCE::GEOMETRY:
+        {
+            uint32_t address = uint16_t(address1) << 8 | uint16_t(address0);
+            if(address + len/4 > GEOMETRY_BUFFER_SIZE)
+            {
+                printf("Attempting to write to geometry buffer outside the bonds %u\n", address);
+                break;
+            }
+            if(len % 4 != 0)
+            {
+                printf("Write length geometry buffer must be divisible by 4\n");
+                break;
+            }
+            if(len < 4)
+            {
+                printf("Write length to the geometry buffer must be at least 4\n");
+                break;
+            }
+
+            memcpy(geometry_buffer + address, data, len);
+
             break;
         }
         default:

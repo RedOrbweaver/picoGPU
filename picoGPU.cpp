@@ -118,13 +118,10 @@ void InitRendering()
         entity_buffer[i].visible = false;
 }
 
-
-
-
-
-
-
-
+void UpdateBackground()
+{
+    
+}
 
 uint64_t RenderFrame(uint32_t& entities_drawn)
 {
@@ -132,8 +129,8 @@ uint64_t RenderFrame(uint32_t& entities_drawn)
 
     entities_drawn = 0;
 
-    dmamemcpy4(entities, entity_buffer, N_ENTITIES*sizeof(Entity), true);
-    //memcpy(entities, entity_buffer, N_ENTITIES*sizeof(Entity));
+    //dmamemcpy4(entities, entity_buffer, N_ENTITIES*sizeof(Entity), true);
+    memcpy(entities, entity_buffer, N_ENTITIES*sizeof(Entity));
 
     uint8_t* video_data = driver->GetBackBuffer();
 
@@ -145,9 +142,9 @@ uint64_t RenderFrame(uint32_t& entities_drawn)
     {
         case BACKGROUND_MODE::SOLID_SHADE:
         {
-            if(context.screen_size.x*context.screen_size.y % 4 == 0)
-                dmamemset4(context.data, background.value, context.screen_size.x*context.screen_size.y, true);
-            else 
+            // if(context.screen_size.x*context.screen_size.y % 4 == 0)
+            //     dmamemset4(context.data, background.value, context.screen_size.x*context.screen_size.y, true);
+            // else 
                 memset(context.data, background.value, context.screen_size.x*context.screen_size.y);
             break;
         }
@@ -278,17 +275,23 @@ int main()
     ctriangle.size = {1, 1};
     ctriangle.data[0] = (uint8_t)SHAPE::TRIANGLE;
     ctriangle.data[1] = 0;
-
-    ctriangle.data[2] = 40;
+    
+    ctriangle.data[2] = 0;
     ctriangle.data[3] = 0;
+    ctriangle.data[4] = 0;
+    ctriangle.data[5] = 0;
 
-    ctriangle.data[4] = 80;
-    ctriangle.data[5] = 80;
+    ctriangle.data[6] = 80;
+    ctriangle.data[7] = 0;
+    ctriangle.data[8] = 0;
+    ctriangle.data[9] = 0;
 
-    ctriangle.data[6] = 0;
-    ctriangle.data[7] = 80;
+    ctriangle.data[10] = 40;
+    ctriangle.data[11] = 0;
+    ctriangle.data[12] = 69;
+    ctriangle.data[13] = 0;
 
-    ctriangle.data[8] = 1;
+    ctriangle.data[14] = 1;
 
     Entity& cline = entity_buffer[2];
     cline.visible = true;
@@ -318,6 +321,7 @@ int main()
     cerec.size = {40, 20};
     cerec.data[0] = (uint8_t)SHAPE::EMPTY_RECTANGLE;
     cerec.data[1] = 0;
+    cerec.data[2] = 1;
 
     Entity& cecirc = entity_buffer[5];
     cecirc.visible = true;
@@ -329,16 +333,76 @@ int main()
     cecirc.data[0] = (uint8_t)SHAPE::EMPTY_CIRCLE;
     cecirc.data[1] = 50;
 
-    vec2<int> tpoint = vec2<int>{0, 40} + vec2<int>{lines_x/2, lines_y/2};
+    Entity& cmultil = entity_buffer[6];
+    cmultil.visible = true;
+    cmultil.type = ENTITY_TYPE::MULTI_LINE;
+    cmultil.rotation = 0;
+    cmultil.layer = 0;
+    cmultil.pos = {50, 250};
+    cmultil.size = {25, 25};
+    cmultil.data[0] = 0;
+    cmultil.data[1] = 0;
+    cmultil.data[2] = 0;
+    cmultil.data[3] = 4;
+    cmultil.data[4] = 0;
 
+    geometry_buffer[0] = {0, 0};
+    geometry_buffer[1] = {10, 0};
+    geometry_buffer[2] = {15, 5};
+    geometry_buffer[3] = {5, 15};
+    geometry_buffer[4] = {0, 0};
+
+    Entity& cerec2 = entity_buffer[7];
+    cerec2.visible = true;
+    cerec2.type = ENTITY_TYPE::SHAPE;
+    cerec2.rotation = 0;
+    cerec2.layer = 2;
+    cerec2.pos = {0, 0};
+    cerec2.size = {150, 150};
+    cerec2.data[0] = (uint8_t)SHAPE::EMPTY_RECTANGLE;
+    cerec2.data[1] = 0;
+    cerec2.data[2] = 0;
+
+
+
+    Entity& cbezier = entity_buffer[8];
+    cbezier.visible = true;
+    cbezier.type = ENTITY_TYPE::BEZIER;
+    cbezier.rotation = 0;
+    cbezier.layer = 1;
+    cbezier.pos = {200, 250};
+    cbezier.data[0] = 0;
+    cbezier.data[1] = 5;
+    cbezier.data[2] = 0;
+    cbezier.data[3] = 9;
+    cbezier.data[4] = 0;
+
+    geometry_buffer[5] = {0, 0};
+    geometry_buffer[6] = {50, -100};
+    geometry_buffer[7] = {75, 0};
+    geometry_buffer[8] = {80, 50};
+    geometry_buffer[9] = {100, 0};
+
+    vec2<int> tpoint = vec2<int>{0, 50};
+    int dirx = 3;
+    int diry = -1;
     while(true)
     {
+        tpoint.y += diry;
+        if(tpoint.y >= 100 || tpoint.y <= -200)
+            diry = -diry;
+        tpoint.x += dirx;
+        if(tpoint.x >= 100 || tpoint.x <= -200)
+            dirx = -dirx;
+        geometry_buffer[6] = tpoint;
         // uint64_t start = get_time_us();
         // sleep_ns(52000);
         // uint64_t tdif = get_time_us() - start;
         //printf("%llu\n", tdif);
         crect.rotation++;
         cerec.rotation++;
+        cmultil.rotation--;
+        ctriangle.rotation--;
         //ctriangle.rotation++;
         uint32_t entities_drawn;
         uint64_t render_time = RenderFrame(entities_drawn);
