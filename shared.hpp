@@ -73,7 +73,7 @@ enum class SHAPE : uint8_t
     RECTANGLE, // data: border colour; fill colour, center
     TRIANGLE, // data: fill colour; x y z positions (16 bit signed, will be multiplied by size), center around zero;
     MULTI_TRIANGLE, // data: fill, geometry buffer start (16 bit), geometry buffer end (16 bit), center around zero
-    EMPTY_CIRCLE, // data: colour, center
+    EMPTY_CIRCLE, // data: colour, mode (0 - full, 1 - only top, 2 - only bottom), center
     EMPTY_RECTANGLE, // data: colour, center
 };
 

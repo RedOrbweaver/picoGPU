@@ -79,14 +79,14 @@ void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2
             }
     }
 }
-void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, bool center)
+void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t mode, bool center)
 {
+    if(!center)
+    {
+        pos += size/2;
+    }
     for(int i = 0; i < size.x; i++)
     {
-        if(!center)
-        {
-            pos += size/2;
-        }
         if(pos.x + size.x >= context.screen_size.x)
             break;
         if(pos.x+i < 0)
@@ -94,12 +94,18 @@ void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos,
         int sy = size.y/2;
         int px = i - sy;
         int p = sqrt(sy*sy - px*px);
-        int pt = pos.y + p;
-        int pb = pos.y - p;
-        if(pt >= 0 && pt < context.screen_size.y)
-            SetPixel(context, color, {i+pos.x, pt});
-        if(pb >= 0 && pt < context.screen_size.y)
-            SetPixel(context, color, {i+pos.x, pb});
+        int pt = pos.y - p;
+        int pb = pos.y + p;
+        if(mode == 0 || mode == 1)
+        {
+            if(pt >= 0 && pt < context.screen_size.y)
+                SetPixel(context, color, {i+pos.x, pt});
+        }
+        if(mode == 0 || mode == 2)
+        {
+            if(pb >= 0 && pt < context.screen_size.y)
+                SetPixel(context, color, {i+pos.x, pb});
+        }
     }
 }
 vec2<int> RotatePoint(vec2<int> point, vec2<int> center, float rotation)
@@ -359,7 +365,7 @@ void DrawBezier(const ScreenContext& context, vec2<int> pos, uint8_t color, vec2
             p2 = RotatePoint(p2, center, rotation);
         }
 
-        int len = Distance(p0, p1) + Distance(p1, p2);
+        int len = Distance(p0, p1) + Distance(p1, p2) + Distance(p0, p2);
         auto interpolate = [](int a, int b, float t)->int
         {
             return a + (float(b-a)*t);
@@ -449,7 +455,8 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
                 }
                 case SHAPE::EMPTY_CIRCLE:
                 {
-                    DrawEmptyCircle(context, entity.data[1], {entity.pos.x, entity.pos.y}, {entity.size.x, entity.size.y}, entity.data[2]);
+                    DrawEmptyCircle(context, entity.data[1], {entity.pos.x, entity.pos.y}, 
+                        {entity.size.x, entity.size.y}, entity.data[2], entity.data[3]);
                     break;
                 }
                 case SHAPE::RECTANGLE:

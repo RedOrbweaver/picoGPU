@@ -77,7 +77,7 @@ void dmawaitformemcopies();
 void UpdateBackground();
 
 void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> radius, uint8_t rotation, bool center);
-void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, bool center);
+void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t mode, bool center);
 void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> size, uint8_t rotation, bool center);
 void DrawEmptyRectangle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t rotation, bool center);
 void DrawTriangle(const ScreenContext& context, uint8_t fill, vec2<int> pos, vec2<int>size, vec2<int> p0, vec2<int> p1, vec2<int> p2, bool centeraroundzero, uint8_t rotation);

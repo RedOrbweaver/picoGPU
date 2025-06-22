@@ -332,6 +332,8 @@ int main()
     cecirc.size = {25, 25};
     cecirc.data[0] = (uint8_t)SHAPE::EMPTY_CIRCLE;
     cecirc.data[1] = 50;
+    cecirc.data[2] = 0;
+    cecirc.data[3] = 1;
 
     Entity& cmultil = entity_buffer[6];
     cmultil.visible = true;
