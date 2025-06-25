@@ -78,6 +78,15 @@ enum class SHAPE : uint8_t
     EMPTY_RECTANGLE, // data: colour, center
 };
 
+enum class EMPTY_CIRCLE_MODE : uint8_t
+{
+    FULL = 0,
+    TOP = 1,
+    BOTTOM = 2,
+};
+
+constexpr int ENTITY_DATA_SIZE = 16;
+
 struct PACK Entity // 28 bytes
 {
     // 4 bytes
@@ -90,8 +99,8 @@ struct PACK Entity // 28 bytes
     vec2<uint16_t> pos;
     vec2<uint16_t> size;
 
-    // 12 bytes
-    uint8_t data[16];
+    // 16 bytes
+    uint8_t data[ENTITY_DATA_SIZE];
 };
 
 enum class BACKGROUND_MODE
