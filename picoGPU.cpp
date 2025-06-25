@@ -130,7 +130,9 @@ uint64_t RenderFrame(uint32_t& entities_drawn)
     entities_drawn = 0;
 
     //dmamemcpy4(entities, entity_buffer, N_ENTITIES*sizeof(Entity), true);
+    uint32_t interrupt_state = save_and_disable_interrupts();
     memcpy(entities, entity_buffer, N_ENTITIES*sizeof(Entity));
+    restore_interrupts(interrupt_state);
 
     uint8_t* video_data = driver->GetBackBuffer();
 

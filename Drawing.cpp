@@ -187,7 +187,7 @@ void DrawRectangle(const ScreenContext& context, uint8_t border, uint8_t fill, v
         
         DrawTriangle(context, fill, {0,0}, {1,1}, TL, TR, BR, false, 0);
         DrawTriangle(context, fill, {0,0}, {1,1}, TL, BL, BR, false, 0);
-        DrawEmptyRectangle(context, border, pos, size, rotation, false);
+        DrawEmptyRectangle(context, border, pos, size, rotation, true);
     }
 }
 void DrawEmptyRectangle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t rotation, bool center)
@@ -386,13 +386,14 @@ void DrawBezier(const ScreenContext& context, vec2<int> pos, uint8_t color, vec2
     }
 }
 
-const mf_font_s* current_font;
+static bool text_is_white;
+static const mf_font_s* current_font;
 void PixelCallback(int16_t x, int16_t y, uint8_t count, uint8_t alpha, void* state)
 {
     ScreenContext* context = (ScreenContext*)state;
     for(int i = 0; i < count; i++)
     {
-        context->data[y * context->screen_size.x + x + i] = 255-alpha;
+        context->data[y * context->screen_size.x + x + i] = (text_is_white) ? alpha : 255-alpha;
     }
 }
 uint8_t CharacterCallback(int16_t x, int16_t y, mf_char character, void* state)
@@ -400,7 +401,7 @@ uint8_t CharacterCallback(int16_t x, int16_t y, mf_char character, void* state)
     return mf_render_character(current_font, x, y, character, &PixelCallback, state);
 }
 
-void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint16_t bufstart, uint16_t len, TEXT_ALIGNMENT alignment)
+void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint16_t bufstart, uint16_t len, TEXT_ALIGNMENT alignment, bool white)
 {
     static const mf_font_s* fonts[] = {&mf_rlefont_DejaVuSans12.font, &mf_rlefont_DejaVuSans12bw.font, 
         &mf_rlefont_DejaVuSerif16.font, &mf_rlefont_DejaVuSerif32.font, &mf_bwfont_fixed_5x8.font,
@@ -418,6 +419,7 @@ void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint1
     }
 
     current_font = fonts[(int)font];
+    text_is_white = white;
 
     mf_render_aligned(current_font, pos.x, pos.y, (mf_align_t)alignment, text_buffer + bufstart, len, &CharacterCallback, (void*)&context);
 }
@@ -543,7 +545,7 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
         }
         case ENTITY_TYPE::TEXT:
         {
-            DrawText(context, entity.pos, (FONT)entity.data[0], *(uint16_t*)(entity.data + 1), *(uint16_t*)(entity.data + 3), (TEXT_ALIGNMENT)*(entity.data + 5));
+            DrawText(context, entity.pos, (FONT)entity.data[0], *(uint16_t*)(entity.data + 1), *(uint16_t*)(entity.data + 3), (TEXT_ALIGNMENT)*(entity.data + 5), entity.data + 6);
             break;
         }
         case ENTITY_TYPE::POINT:

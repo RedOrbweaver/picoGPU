@@ -82,7 +82,7 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
         case SOURCE::TEXTURE0:
         case SOURCE::TEXTURE1:
         {
-            uint32_t address = uint16_t(address0) << 8 | uint16_t(address1);
+            uint32_t address = uint16_t(address1) << 8 | uint16_t(address0);
             if(source == SOURCE::TEXTURE1)
             {
                 address += 65536;

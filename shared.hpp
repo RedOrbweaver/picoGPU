@@ -61,7 +61,7 @@ enum class ENTITY_TYPE : uint8_t
     SHAPE, // data: shape; shape data...
     SPRITE, // data: buffer start(32 bit), buffer len(32 bit), center; for now size and rotation are ignored
     LINE, // pos is p0, size is p1; data: color
-    TEXT, // data: font, text buffer pos (16 bit), text len (16 bit), alignment
+    TEXT, // data: font, text buffer pos (16 bit), text len (16 bit), alignment, white
     POINT, // data: color
     MULTI_POINT, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
     MULTI_LINE, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
