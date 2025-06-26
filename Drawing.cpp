@@ -423,10 +423,8 @@ void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint1
 
     mf_render_aligned(current_font, pos.x, pos.y, (mf_align_t)alignment, text_buffer + bufstart, len, &CharacterCallback, (void*)&context);
 }
-void DrawSprite(const ScreenContext& context, vec2<uint16_t> pos16, vec2<uint16_t> size16, uint32_t start, uint32_t len, bool center)
+void DrawSprite(const ScreenContext& context, vec2<int> pos, vec2<int> size, uint32_t start, uint32_t len, bool center)
 {
-    vec2<int> pos = {pos16.x, pos16.y};
-    vec2<int> size = {size16.x, size16.y};
     if(center)
         pos -= size/2;
     if(pos.x >= context.screen_size.x || pos.y >= context.screen_size.y)
@@ -555,7 +553,7 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
         }
         case ENTITY_TYPE::SPRITE:
         {
-            DrawSprite(context, {entity.pos.x, entity.pos.y}, {entity.pos.x, entity.pos.y}, *(uint32_t*)entity.data, *(uint32_t*)(entity.data + 4), entity.data[8]);
+            DrawSprite(context, entity.pos.convert<int>(), entity.size.convert<int>(), *(uint32_t*)entity.data, *(uint32_t*)(entity.data + 4), entity.data[8]);
             break;
         }
         case ENTITY_TYPE::MULTI_LINE:

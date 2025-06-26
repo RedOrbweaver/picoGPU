@@ -140,23 +140,13 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
         case SOURCE::GEOMETRY:
         {
             uint32_t address = uint16_t(address1) << 8 | uint16_t(address0);
-            if(address + len/4 > GEOMETRY_BUFFER_SIZE)
+            if(address + len > GEOMETRY_BUFFER_SIZE*GEOMETRY_BUFFER_ELEMENT_SIZE)
             {
                 printf("Attempting to write to geometry buffer outside the bonds %u\n", address);
                 break;
             }
-            if(len % 4 != 0)
-            {
-                printf("Write length geometry buffer must be divisible by 4\n");
-                break;
-            }
-            if(len < 4)
-            {
-                printf("Write length to the geometry buffer must be at least 4\n");
-                break;
-            }
 
-            memcpy(geometry_buffer + address, data, len);
+            memcpy(((uint8_t*)geometry_buffer) + address, data, len);
 
             break;
         }
