@@ -85,12 +85,9 @@ void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos,
     {
         pos += size/2;
     }
-    for(int i = 0; i < size.x; i++)
+    pos.x -= size.x/2;
+    for(int i = size.x/8; i < size.x*7/8; i++)
     {
-        if(pos.x + size.x >= context.screen_size.x)
-            break;
-        if(pos.x+i < 0)
-            continue;
         int sy = size.y/2;
         int px = i - sy;
         int p = sqrt(sy*sy - px*px);
@@ -99,12 +96,32 @@ void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos,
         if(mode == 0 || mode == 1)
         {
             if(pt >= 0 && pt < context.screen_size.y)
-                SetPixel(context, color, {i+pos.x, pt});
+                SetPixelSafe(context, color, {i+pos.x, pt});
         }
         if(mode == 0 || mode == 2)
         {
             if(pb >= 0 && pt < context.screen_size.y)
-                SetPixel(context, color, {i+pos.x, pb});
+                SetPixelSafe(context, color, {i+pos.x, pb});
+        }
+    }
+    pos.x += size.x/2;
+    pos.y -= size.y/2;
+    for(int i = size.y/8; i < size.y*7/8; i++)
+    {
+        int sy = size.x/2;
+        int px = i - sy;
+        int p = sqrt(sy*sy - px*px);
+        int pt = pos.x - p;
+        int pb = pos.x + p;
+        if(mode == 0 || mode == 1)
+        {
+            if(pt >= 0 && pt < context.screen_size.y)
+                SetPixelSafe(context, color, {pt, i+pos.y});
+        }
+        if(mode == 0 || mode == 2)
+        {
+            if(pb >= 0 && pt < context.screen_size.y)
+                SetPixelSafe(context, color, {pb, i+pos.y});
         }
     }
 }

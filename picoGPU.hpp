@@ -63,6 +63,12 @@ inline void SetPixelSafe(const ScreenContext& context, uint8_t val, vec2<int> po
         return;
     SetPixel(context, val, pos);
 }
+inline void SetPixelTest(const ScreenContext& context, uint8_t val, vec2<int> pos)
+{
+    assert(!(pos.x >= context.screen_size.x || pos.x < 0));
+    assert(!(pos.y >= context.screen_size.y || pos.y < 0));
+    SetPixel(context, val, pos);
+}
 
 
 // inline void sleep_ns(float ns)
