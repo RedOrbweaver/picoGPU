@@ -2,79 +2,13 @@
 
 
 PAL_DRIVER* driver;
-int dmamemcpychan1;
-dma_channel_config dmamemcpychan1c;
-int dmamemcpychan4;
-dma_channel_config dmamemcpychan4c;
-int dmamemsetchan4;
-dma_channel_config dmamemsetchan4c;
-
 
 Entity entities[N_ENTITIES];
 
-void dmawaitcpy1()
-{
-    dma_channel_wait_for_finish_blocking(dmamemcpychan1);
-}
-void dmamemcpy1(void* to, void* from, size_t size, bool wait)
-{
-    dma_channel_configure
-    (
-        dmamemcpychan1,
-        &dmamemcpychan1c,
-        to,
-        from,
-        size,
-        true
-    );
-    if(wait)
-        dmawaitcpy1();
-}
-void dmawaitcpy4()
-{
-    dma_channel_wait_for_finish_blocking(dmamemcpychan4);
-}
-void dmamemcpy4(void* to, void* from, size_t size, bool wait)
-{
-    assert(size % 4 == 0);
-    dma_channel_configure
-    (
-        dmamemcpychan4,
-        &dmamemcpychan4c,
-        to,
-        from,
-        size/4,
-        true
-    );
-    if(wait)
-        dmawaitcpy4();
-}
-void dmawaitmemset4()
-{
-    dma_channel_wait_for_finish_blocking(dmamemsetchan4);
-}
-void dmamemset4(void* to, uint8_t value, size_t size, bool wait)
-{
-    assert(size % 4 == 0);
-    uint8_t val[4] = {value, value, value, value};
-    dma_channel_configure
-    (
-        dmamemsetchan4,
-        &dmamemsetchan4c,
-        to,
-        val,
-        size/4,
-        true
-    );
-    if(wait)
-        dmawaitmemset4();
-}
+mutex_t core1mx;
 
-void dmawaitformemcopies()
-{
-    dmawaitcpy1();
-    dmawaitcpy4();
-}
+bool update_settings = false;
+bool update_background = false;
 
 float ReadTemperature()
 {
@@ -92,35 +26,18 @@ void WriteTemperature()
 
 void InitRendering()
 {
-    dmamemcpychan1 = dma_claim_unused_channel(true);
-    dmamemcpychan1c = dma_channel_get_default_config(dmamemcpychan1);
-    channel_config_set_transfer_data_size(&dmamemcpychan1c, DMA_SIZE_8);
-    channel_config_set_read_increment(&dmamemcpychan1c, true);
-    channel_config_set_write_increment(&dmamemcpychan1c, true);       
-    channel_config_set_enable(&dmamemcpychan1c, true);
-
-    dmamemcpychan4 = dma_claim_unused_channel(true);
-    dmamemcpychan4c = dma_channel_get_default_config(dmamemcpychan4);
-    channel_config_set_transfer_data_size(&dmamemcpychan4c, DMA_SIZE_32);
-    channel_config_set_read_increment(&dmamemcpychan4c, true);
-    channel_config_set_write_increment(&dmamemcpychan4c, true);
-    channel_config_set_enable(&dmamemcpychan4c, true);
-
-
-    dmamemsetchan4 = dma_claim_unused_channel(true);
-    dmamemsetchan4c = dma_channel_get_default_config(dmamemsetchan4);
-    channel_config_set_transfer_data_size(&dmamemsetchan4c, DMA_SIZE_32);
-    channel_config_set_read_increment(&dmamemsetchan4c, false);
-    channel_config_set_write_increment(&dmamemsetchan4c, true);
-    channel_config_set_enable(&dmamemsetchan4c, true);
-
     for(volatile int i = 0; i < N_ENTITIES; i++)
         entity_buffer[i].visible = false;
 }
 
 void UpdateBackground()
 {
-    
+    update_background = true;
+}
+
+void UpdateSettings()
+{
+    update_settings = true;
 }
 
 uint64_t RenderFrame(uint32_t& entities_drawn)
@@ -129,7 +46,6 @@ uint64_t RenderFrame(uint32_t& entities_drawn)
 
     entities_drawn = 0;
 
-    //dmamemcpy4(entities, entity_buffer, N_ENTITIES*sizeof(Entity), true);
     uint32_t interrupt_state = save_and_disable_interrupts();
     memcpy(entities, entity_buffer, N_ENTITIES*sizeof(Entity));
     restore_interrupts(interrupt_state);
@@ -144,14 +60,20 @@ uint64_t RenderFrame(uint32_t& entities_drawn)
     {
         case BACKGROUND_MODE::SOLID_SHADE:
         {
-            // if(context.screen_size.x*context.screen_size.y % 4 == 0)
-            //     dmamemset4(context.data, background.value, context.screen_size.x*context.screen_size.y, true);
-            // else 
-                memset(context.data, background.value, context.screen_size.x*context.screen_size.y);
+            memset(context.data, background.value, context.screen_size.x*context.screen_size.y);
             break;
         }
         case BACKGROUND_MODE::TEXTURE:
         {
+            for(int y = 0; y < context.screen_size.y; y++)
+            {
+                int posy = float(y)/float(context.screen_size.y) * float(background.source_size.y);
+                for(int x = 0; x < context.screen_size.x; x++)
+                {
+                    int posx = float(x)/float(context.screen_size.x) * float(background.source_size.x);
+                    SetPixel(context, background_texture[posy*background.source_size.x + posx], {x, y});
+                }   
+            }
             break;
         }
         default:
@@ -159,14 +81,10 @@ uint64_t RenderFrame(uint32_t& entities_drawn)
             printf("invalid background mode: %i\n", (int)background.mode);
         }
     }
-    dmawaitformemcopies();
 
-    //background dma still running
     // sort entities by layer
     std::sort(entities, entities + N_ENTITIES, [](const Entity& a, const Entity& b){return a.layer > b.layer;});
 
-    // finish background dma copy
-    dmawaitmemset4();
 
     for(volatile int i = 0; i < N_ENTITIES; i++)
     {
@@ -209,7 +127,14 @@ void InitI2C()
 
 void core1_entry()
 {
-    driver->Start();
+    while(true)
+    {
+        mutex_enter_blocking(&core1mx);
+        if(driver != nullptr)
+            driver->Start();
+        mutex_exit(&core1mx);
+        sleep_ms(1); // A dirty way to make sure there's enough time for the other core to grab the mutex
+    }
 }
 
 void InitAll()
@@ -221,6 +146,8 @@ void InitAll()
 
     adc_init();
     adc_set_temp_sensor_enabled(true);
+
+    mutex_init(&core1mx);
 
     driver = new PAL_DRIVER(RENDER_MODE::BW_408_304_DOUBLE_BUF, SAMPLING_MODE::SPP_1);
 
@@ -244,170 +171,32 @@ int main()
 
     uint8_t* video_data = driver->GetBackBuffer();
 
-    int lines_x = driver->GetLinesX();
-    int lines_y = driver->GetLinesY();
-    int video_data_size = lines_x*lines_y;
-
-    // float sx = 10.0f;
-    // float sy = 10.0f;
-    // float px = 50.00f;
-    // float py = 50.0f;
-    // float r = 15;
-
-
     printf("Remaining memory: %i\n", GetFreeHeap());
 
     background.mode = BACKGROUND_MODE::SOLID_SHADE;
-    background.value = 0; 
-    
-    // Entity& ball = entity_buffer[0];
-    // ball.visible = true;
-    // ball.type = ENTITY_TYPE::SHAPE;
-    // ball.layer = 0;
-    // ball.size = vec2<uint16_t>{uint16_t(r), uint16_t(r)};
-    // ball.data[0] = (uint8_t)SHAPE::CIRCLE;
-    // ball.data[1] = 128;
-    // ball.data[2] = 0;
+    background.value = 0;
 
-    // Entity& ctriangle = entity_buffer[1];
-    // ctriangle.visible = true;
-    // ctriangle.type = ENTITY_TYPE::SHAPE;
-    // ctriangle.layer = 1;
-    // ctriangle.pos = {uint16_t(lines_x/2), uint16_t(lines_y/2)};
-    // ctriangle.size = {1, 1};
-    // ctriangle.data[0] = (uint8_t)SHAPE::TRIANGLE;
-    // ctriangle.data[1] = 0;
-    
-    // ctriangle.data[2] = 0;
-    // ctriangle.data[3] = 0;
-    // ctriangle.data[4] = 0;
-    // ctriangle.data[5] = 0;
-
-    // ctriangle.data[6] = 80;
-    // ctriangle.data[7] = 0;
-    // ctriangle.data[8] = 0;
-    // ctriangle.data[9] = 0;
-
-    // ctriangle.data[10] = 40;
-    // ctriangle.data[11] = 0;
-    // ctriangle.data[12] = 69;
-    // ctriangle.data[13] = 0;
-
-    // ctriangle.data[14] = 1;
-
-    // Entity& cline = entity_buffer[2];
-    // cline.visible = true;
-    // cline.type = ENTITY_TYPE::LINE;
-    // cline.layer = 1;
-    // cline.pos = {50, 50};
-    // cline.size = {200, 100};
-    // cline.data[0] = 0;
-
-    // Entity& crect = entity_buffer[3];
-    // crect.visible = true;
-    // crect.type = ENTITY_TYPE::SHAPE;
-    // crect.rotation = 50;
-    // crect.layer = 2;
-    // crect.pos = {50, 150};
-    // crect.size = {40, 20};
-    // crect.data[0] = (uint8_t)SHAPE::RECTANGLE;
-    // crect.data[1] = 100;
-    // crect.data[2] = 0;
-
-    // Entity& cerec = entity_buffer[4];
-    // cerec.visible = true;
-    // cerec.type = ENTITY_TYPE::SHAPE;
-    // cerec.rotation = 100;
-    // cerec.layer = 2;
-    // cerec.pos = {150, 200};
-    // cerec.size = {40, 20};
-    // cerec.data[0] = (uint8_t)SHAPE::EMPTY_RECTANGLE;
-    // cerec.data[1] = 0;
-    // cerec.data[2] = 1;
-
-    // Entity& cecirc = entity_buffer[5];
-    // cecirc.visible = true;
-    // cecirc.type = ENTITY_TYPE::SHAPE;
-    // cecirc.rotation = 0;
-    // cecirc.layer = 0;
-    // cecirc.pos = {300, 200};
-    // cecirc.size = {25, 25};
-    // cecirc.data[0] = (uint8_t)SHAPE::EMPTY_CIRCLE;
-    // cecirc.data[1] = 50;
-    // cecirc.data[2] = 0;
-    // cecirc.data[3] = 1;
-
-    // Entity& cmultil = entity_buffer[6];
-    // cmultil.visible = true;
-    // cmultil.type = ENTITY_TYPE::MULTI_LINE;
-    // cmultil.rotation = 0;
-    // cmultil.layer = 0;
-    // cmultil.pos = {50, 250};
-    // cmultil.size = {25, 25};
-    // cmultil.data[0] = 0;
-    // cmultil.data[1] = 0;
-    // cmultil.data[2] = 0;
-    // cmultil.data[3] = 4;
-    // cmultil.data[4] = 0;
-
-    // geometry_buffer[0] = {0, 0};
-    // geometry_buffer[1] = {10, 0};
-    // geometry_buffer[2] = {15, 5};
-    // geometry_buffer[3] = {5, 15};
-    // geometry_buffer[4] = {0, 0};
-
-    // Entity& cerec2 = entity_buffer[7];
-    // cerec2.visible = true;
-    // cerec2.type = ENTITY_TYPE::SHAPE;
-    // cerec2.rotation = 0;
-    // cerec2.layer = 2;
-    // cerec2.pos = {0, 0};
-    // cerec2.size = {150, 150};
-    // cerec2.data[0] = (uint8_t)SHAPE::EMPTY_RECTANGLE;
-    // cerec2.data[1] = 0;
-    // cerec2.data[2] = 0;
-
-
-
-    // Entity& cbezier = entity_buffer[8];
-    // cbezier.visible = true;
-    // cbezier.type = ENTITY_TYPE::BEZIER;
-    // cbezier.rotation = 0;
-    // cbezier.layer = 1;
-    // cbezier.pos = {200, 250};
-    // cbezier.data[0] = 0;
-    // cbezier.data[1] = 5;
-    // cbezier.data[2] = 0;
-    // cbezier.data[3] = 9;
-    // cbezier.data[4] = 0;
-
-    // geometry_buffer[5] = {0, 0};
-    // geometry_buffer[6] = {50, -100};
-    // geometry_buffer[7] = {75, 0};
-    // geometry_buffer[8] = {80, 50};
-    // geometry_buffer[9] = {100, 0};
-
-    vec2<int> tpoint = vec2<int>{0, 50};
-    int dirx = 3;
-    int diry = -1;
     while(true)
     {
-        // tpoint.y += diry;
-        // if(tpoint.y >= 100 || tpoint.y <= -200)
-        //     diry = -diry;
-        // tpoint.x += dirx;
-        // if(tpoint.x >= 100 || tpoint.x <= -200)
-        //     dirx = -dirx;
-        // geometry_buffer[6] = tpoint;
-        // // uint64_t start = get_time_us();
-        // // sleep_ns(52000);
-        // // uint64_t tdif = get_time_us() - start;
-        // //printf("%llu\n", tdif);
-        // crect.rotation++;
-        // cerec.rotation++;
-        // cmultil.rotation--;
-        // ctriangle.rotation--;
-        //ctriangle.rotation++;
+        if(update_settings)
+        {
+            driver->Stop();
+            mutex_enter_blocking(&core1mx);
+            delete driver;
+            driver = new PAL_DRIVER(settings.render_mode, settings.sampling_mode);
+            mutex_exit(&core1mx);
+            update_settings = false;
+        }
+        if(update_background)
+        {
+            if(background_texture != nullptr)
+                delete[] background_texture;
+            if(background.mode == BACKGROUND_MODE::TEXTURE)
+            {
+                background_texture = new uint8_t[background.source_size.area()];
+            }
+            update_background = false;
+        }
         uint32_t entities_drawn;
         uint64_t render_time = RenderFrame(entities_drawn);
         information.last_render_time_us = render_time;
@@ -415,6 +204,8 @@ int main()
         information.total_memory = GetTotalHeap();
         information.free_memory = GetFreeHeap();
         information.temperature = ReadTemperature();
+        information.lines_x = driver->GetLinesX();
+        information.lines_y = driver->GetLinesY();
         information.frame_number++;
     }
 }

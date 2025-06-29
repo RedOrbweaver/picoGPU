@@ -51,6 +51,8 @@ class PAL_DRIVER
     pio_hw_t* sync_pio;
     int sync_sm;
 
+    bool stop = false;
+
 
 
     uint64_t cmptm = 0;
@@ -146,16 +148,6 @@ class PAL_DRIVER
         dac_sm = pio_claim_unused_sm(dac_pio, true);
         uint8_t offset = pio_add_program(dac_pio, &dac_out_program);
         dac_program_init(dac_pio, dac_sm, offset, PIN::DAC_OUT[0], 1.0f);
-
-        // vertical_pio = pio0;
-        // vertical_sm = pio_claim_unused_sm(vertical_pio, true);
-        // offset = pio_add_program(vertical_pio, &vertical_sync_program);
-        // vertical_sync_init(vertical_pio, vertical_sm, offset, PIN::NOT_SYNC, 3.0f);
-
-        // line_pio = pio0;
-        // line_sm = pio_claim_unused_sm(line_pio, true);
-        // offset = pio_add_program(line_pio, &line_sync_program);
-        // line_sync_init(line_pio, line_sm, offset, PIN::NOT_SYNC, 3.0f);
 
         sync_pio = pio0;
         sync_sm = pio_claim_unused_sm(sync_pio, true);
@@ -261,7 +253,7 @@ class PAL_DRIVER
 
     void LoopInterlaced()
     {
-        while(true)
+        while(!stop)
         {
             uint64_t tm;
             uint64_t tmdif;
@@ -276,10 +268,12 @@ class PAL_DRIVER
             {
                 LineSync();
                 dac_write(send_buffer, send_buffer_size, line_div);
-                sleep_us(52);
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
+                dma_channel_wait_for_finish_blocking(dmachan);
+                while(!pio_sm_is_tx_fifo_empty(dac_pio, dac_sm))
+                    tight_loop_contents();
             }
             mutex_exit(&non_blanking_mx);
             ShortSync(5);
@@ -292,11 +286,12 @@ class PAL_DRIVER
             {
                 LineSync();
                 dac_write(send_buffer, send_buffer_size, line_div);
-                sleep_us(52);
-
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
+                dma_channel_wait_for_finish_blocking(dmachan);
+                while(!pio_sm_is_tx_fifo_empty(dac_pio, dac_sm))
+                    tight_loop_contents();
             }
             mutex_exit(&non_blanking_mx);
 
@@ -312,7 +307,7 @@ class PAL_DRIVER
 
     void LoopNonInterlaced()
     {
-        while(true)
+        while(!stop)
         {
             uint64_t tm;
             uint64_t tmdif;
@@ -324,6 +319,7 @@ class PAL_DRIVER
             ShortSync(5);
             mutex_enter_blocking(&non_blanking_mx);
             ComputeSendBuffer(0);
+            volatile uint64_t dif;
             for(int i = 0; i < lines_y; i++)
             {
                 LineSync();
@@ -337,7 +333,7 @@ class PAL_DRIVER
                 dma_channel_wait_for_finish_blocking(dmachan);
                 while(!pio_sm_is_tx_fifo_empty(dac_pio, dac_sm))
                     tight_loop_contents();
-                volatile uint64_t dif = get_time_us()-start;
+                dif = get_time_us()-start;
                 //printf("%i: %llu\n", i, dif);       
             }
             mutex_exit(&non_blanking_mx);
@@ -366,11 +362,24 @@ class PAL_DRIVER
             LoopNonInterlaced();
     }
 
+    void Stop()
+    {
+        stop = true;
+    }
+
+    PAL_DRIVER()=delete;
+    PAL_DRIVER(PAL_DRIVER&)=delete;
     PAL_DRIVER(RENDER_MODE mode, SAMPLING_MODE smode)
     {
         this->mode = mode;
         this->smode = smode;
         init();
+    }
+    ~PAL_DRIVER()
+    {
+        delete[] front_buffer;
+        delete[] back_buffer;
+        delete[] send_buffer;
     }
     private:
     void init()

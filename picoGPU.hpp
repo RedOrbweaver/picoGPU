@@ -5,6 +5,8 @@ inline Entity entity_buffer[N_ENTITIES];
 inline char text_buffer[TEXT_BUFFER_SIZE];
 inline vec2<int> geometry_buffer[GEOMETRY_BUFFER_SIZE];
 inline Background background;
+inline Settings settings;
+inline uint8_t* background_texture = nullptr;
 
 struct ScreenContext
 {
@@ -13,7 +15,7 @@ struct ScreenContext
 };
 
 
-enum class SPI_STATE : uint8_t
+enum class I2C_STATE : uint8_t
 {
     NONE=0,
     SOURCE,
@@ -25,7 +27,7 @@ enum class SPI_STATE : uint8_t
 
 struct i2c_state_machine
 {
-    SPI_STATE state;
+    I2C_STATE state;
     SOURCE source;
     uint8_t address0;
     uint8_t address1;
@@ -71,16 +73,8 @@ inline void SetPixelTest(const ScreenContext& context, uint8_t val, vec2<int> po
 }
 
 
-// inline void sleep_ns(float ns)
-// {
-//     busy_wait_at_least_cycles(ns/3.33333f*0.7428f);
-// }
-
-void dmawaitcpy1();
-void dmawaitcpy4();
-void dmawaitmemset4();
-void dmawaitformemcopies();
 void UpdateBackground();
+void UpdateSettings();
 
 void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> radius, uint8_t rotation, bool center);
 void DrawEmptyCircle(const ScreenContext& context, uint8_t color, vec2<int> pos, vec2<int> size, uint8_t mode, bool center);

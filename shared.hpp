@@ -113,15 +113,14 @@ struct PACK Background
 {
     bool visible = false;
     BACKGROUND_MODE mode;
-    vec2<uint16_t> pos;
-    vec2<uint16_t> size;
     vec2<uint16_t> source_size;
     uint8_t value;
 };
 
 struct PACK Settings
 {
-
+    RENDER_MODE render_mode;
+    SAMPLING_MODE sampling_mode;
 };
 
 struct PACK Info
@@ -132,4 +131,6 @@ struct PACK Info
     uint32_t free_memory;
     float temperature;
     uint32_t frame_number;
+    uint16_t lines_x;
+    uint16_t lines_y;
 };

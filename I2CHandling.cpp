@@ -11,18 +11,14 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
     {
         case SOURCE::DEBUG_PRITNF:
         {
-            uint8_t buf[256];
+            static uint8_t buf[256];
             memcpy(buf, data, len);
             buf[len] = '\0';
             printf("%s\n", buf);
-
             break;
         }
         case SOURCE::ENTITY_BUFFER:
         {
-            // Somewhat ensures that the entity buffer is not being copied.
-            dmawaitformemcopies();
-
             if(address0 >= N_ENTITIES)
             {
                 printf("Out of bounds read of the entity buffer at %i!\n", (int)address0);
@@ -43,9 +39,6 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
         }
         case SOURCE::TEXT_BUFFER:
         {
-            // see above
-            dmawaitformemcopies();
-
             uint16_t address = uint16_t(address1) << 8 | uint16_t(address0);
             if(address + len > TEXT_BUFFER_SIZE)
             {
@@ -129,7 +122,7 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
                 printf("Background texture is nullptr\n");
                 break;
             }
-            if(address + len > background.size.x*background.size.y)
+            if(address + len > background.source_size.area())
             {
                 printf("Attempting to write to background texture outside the bonds %u\n", address);
                 break;
@@ -148,6 +141,17 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
 
             memcpy(((uint8_t*)geometry_buffer) + address, data, len);
 
+            break;
+        }
+        case SOURCE::SETTINGS:
+        {
+            if(len != sizeof(Settings))
+            {
+                printf("Invalid size for settings %u\n", (uint32_t)len);
+                break;
+            }
+            memcpy(&settings, data, len);
+            UpdateSettings();
             break;
         }
         default:
@@ -174,7 +178,7 @@ void I2CHandlerInternal()
 
     switch(i2c_state.state)
     {
-        case SPI_STATE::NONE:
+        case I2C_STATE::NONE:
         {
             if(value == 0xEF)
             {
@@ -189,53 +193,53 @@ void I2CHandlerInternal()
                 printf("ERROR: INVALID FIRST I2C VALUE: %i\n", (int)value);
                 break;
             }
-            i2c_state.state = SPI_STATE::SOURCE;
+            i2c_state.state = I2C_STATE::SOURCE;
             break;
         }
-        case SPI_STATE::SOURCE:
+        case I2C_STATE::SOURCE:
         {
             i2c_state.source = (SOURCE)value;
-            i2c_state.state = SPI_STATE::ADDR0;
+            i2c_state.state = I2C_STATE::ADDR0;
             break;
         }
-        case SPI_STATE::ADDR0:
+        case I2C_STATE::ADDR0:
         {
             i2c_state.address0 = value;
-            i2c_state.state = SPI_STATE::ADDR1;
+            i2c_state.state = I2C_STATE::ADDR1;
             break;
         }
-        case SPI_STATE::ADDR1:
+        case I2C_STATE::ADDR1:
         {
             i2c_state.address1 = value;
-            i2c_state.state = SPI_STATE::LEN;
+            i2c_state.state = I2C_STATE::LEN;
             break;
         }
-        case SPI_STATE::LEN:
+        case I2C_STATE::LEN:
         {
 
             i2c_state.len = value;
             i2c_state.data_pos = 0;
             if(i2c_state.read == true)
             {
-                i2c_state.state = SPI_STATE::NONE;
+                i2c_state.state = I2C_STATE::NONE;
                 i2c_state.data_pos = 0;
             }
             else
             {
-                i2c_state.state = SPI_STATE::DATA;
+                i2c_state.state = I2C_STATE::DATA;
                 //spi_state.state = SPI_STATE::NONE;
                 //spi_read_blocking(spi0, 0, spi_state.data, spi_state.len);
                 //HandleSPIWrite(spi_state.source, spi_state.address0, spi_state.address1, spi_state.len, spi_state.data);
             }
             break;
         }
-        case SPI_STATE::DATA:
+        case I2C_STATE::DATA:
         {
             i2c_state.data[i2c_state.data_pos] = value;
             i2c_state.data_pos++;
             if(i2c_state.data_pos == i2c_state.len)
             {
-                i2c_state.state = SPI_STATE::NONE;
+                i2c_state.state = I2C_STATE::NONE;
                 HandleI2CWrite(i2c_state.source, i2c_state.address0, i2c_state.address1, i2c_state.len, i2c_state.data);
             }
             break;
@@ -292,6 +296,10 @@ uint8_t I2CGetNextByte()
             value = ((uint8_t*)&texture_buffer_size)[i2c_state.data_pos++];
             break;
         }
+        case SOURCE::SETTINGS:
+        {
+
+        };
     }
     return value;
 }
