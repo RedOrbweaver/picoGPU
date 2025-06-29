@@ -441,32 +441,65 @@ void DrawText(const ScreenContext& context, vec2<uint16_t> pos, FONT font, uint1
 
     mf_render_aligned(current_font, pos.x, pos.y, (mf_align_t)alignment, text_buffer + bufstart, len, &CharacterCallback, (void*)&context);
 }
-void DrawSprite(const ScreenContext& context, vec2<int> pos, vec2<int> size, uint32_t start, uint32_t len, bool center, bool usetransparency, uint8_t transparencyvalue)
+void DrawSprite(const ScreenContext& context, vec2<int> pos, vec2<int> size, uint8_t rotation, uint32_t start, uint32_t len, bool center, bool usetransparency, uint8_t transparencyvalue)
 {
     if(center)
         pos -= size/2;
-    if(!usetransparency)
+    if(rotation == 0)
     {
-        if(pos.x >= context.screen_size.x || pos.y >= context.screen_size.y)
-            return;
-        pos = pos.max(0);
-        int hsize = size.x;
-        if(pos.x+size.x > context.screen_size.x)
-            hsize += context.screen_size.x - (pos.x+size.x);
-        for(int i = pos.y; i < std::min(context.screen_size.y, pos.y+size.y); i++)
+        if(!usetransparency)
         {
-            memcpy(context.data + i*context.screen_size.x + pos.x, texture_buffer + start + ((i-pos.y)*size.x), hsize);
+            if(pos.x >= context.screen_size.x || pos.y >= context.screen_size.y)
+                return;
+            pos = pos.max(0);
+            int hsize = size.x;
+            if(pos.x+size.x > context.screen_size.x)
+                hsize += context.screen_size.x - (pos.x+size.x);
+            for(int i = pos.y; i < std::min(context.screen_size.y, pos.y+size.y); i++)
+            {
+                memcpy(context.data + i*context.screen_size.x + pos.x, texture_buffer + start + ((i-pos.y)*size.x), hsize);
+            }
+        }
+        else
+        {
+            for(int y = 0; y < size.y; y++)
+            {
+                for(int x = 0; x < size.x; x++)
+                {
+                    uint8_t v = *(texture_buffer + start + size.x*y + x);
+                    if(v != transparencyvalue)
+                        SetPixelSafe(context, v, pos + vec2<int>{x, y});
+                }
+            }
         }
     }
     else
     {
-        for(int y = 0; y < size.y; y++)
+        if(!usetransparency)
         {
-            for(int x = 0; x < size.x; x++)
+            for(int y = 0; y < size.y; y++)
             {
-                uint8_t v = *(texture_buffer + start + size.x*y + x);
-                if(v != transparencyvalue)
-                    SetPixelSafe(context, v, pos + vec2<int>{x, y});
+                for(int x = 0; x < size.x; x++)
+                {
+                    uint8_t v = *(texture_buffer + start + size.x*y + x);
+                    vec2<int> p = RotatePoint({x, y}, size/2, rotation) + pos;
+                    SetPixelSafe(context, v, p);
+                }
+            }
+        }
+        else
+        {
+            for(int y = 0; y < size.y; y++)
+            {
+                for(int x = 0; x < size.x; x++)
+                {
+                    uint8_t v = *(texture_buffer + start + size.x*y + x);
+                    if(v != transparencyvalue)
+                    {
+                        vec2<int> p = RotatePoint({x, y}, size/2, rotation) + pos;
+                        SetPixelSafe(context, v, p);
+                    }
+                }
             }
         }
     }
@@ -586,7 +619,7 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
         }
         case ENTITY_TYPE::SPRITE:
         {
-            DrawSprite(context, entity.pos.convert<int>(), entity.size.convert<int>(), 
+            DrawSprite(context, entity.pos.convert<int>(), entity.size.convert<int>(), entity.rotation, 
                 *(uint32_t*)entity.data, *(uint32_t*)(entity.data + 4), entity.data[8],
                 entity.data[9], entity.data[10]);
             break;
