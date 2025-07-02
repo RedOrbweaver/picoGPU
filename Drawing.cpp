@@ -644,6 +644,11 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
                 printf("Geometry buffer start out of range (%i)\n", (int)start);
                 break;
             }
+            if(((end-start)+1) < 2)
+            {
+                printf("Multi line needs at least 2 points\n");
+                break;
+            }
             vec2<int> center = {0, 0};
             if(entity.rotation != 0)
             {
@@ -665,8 +670,59 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
                 }
                 DrawLine(context, color, p0+offset, p1+offset, 0);
             }
-
-
+            break;
+        }
+        case ENTITY_TYPE::MULTI_LINES:
+        {
+            uint8_t color = entity.data[0];
+            uint16_t start = *(uint16_t*)(entity.data + 1);
+            uint16_t end = *(uint16_t*)(entity.data + 3);
+            if(end < start)
+            {
+                printf("Geometry buffer start (%i) greater than end (%i)\n", (int)start, (int)end);
+                break;
+            }
+            if(end >= GEOMETRY_BUFFER_SIZE)
+            {
+                printf("Geometry buffer end out of range (%i)\n", (int)end);
+                break;
+            }
+            if(start > GEOMETRY_BUFFER_SIZE-1)
+            {
+                printf("Geometry buffer start out of range (%i)\n", (int)start);
+                break;
+            }
+            if(((end-start)+1) < 2)
+            {
+                printf("Multi lines needs at least 2 points\n");
+                break;
+            }
+            if(((end-start)+1) % 2 != 0)
+            {
+                printf("Multi lines geometry buffer length must be divisible by 2\n");
+                break;
+            }
+            vec2<int> center = {0, 0};
+            if(entity.rotation != 0)
+            {
+                for(int i = start; i <= end; i++)
+                {
+                    center += geometry_buffer[i];
+                }
+                center /= int(end-start+1);
+            }
+            for(int i = start; i <= end-1; i+=2)
+            {
+                vec2<int> offset = vec2<int>{(int)entity.pos.x, (int)entity.pos.y};
+                vec2<int> p0 = geometry_buffer[i];
+                vec2<int> p1 = geometry_buffer[i+1];
+                if(entity.rotation != 0)
+                {
+                    p0 = RotatePoint(p0, center, entity.rotation);
+                    p1 = RotatePoint(p1, center, entity.rotation);
+                }
+                DrawLine(context, color, p0+offset, p1+offset, 0);
+            }
             break;
         }
         case ENTITY_TYPE::MULTI_POINT:

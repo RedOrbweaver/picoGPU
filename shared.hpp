@@ -65,6 +65,7 @@ enum class ENTITY_TYPE : uint8_t
     POINT, // data: color
     MULTI_POINT, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
     MULTI_LINE, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
+    MULTI_LINES, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
     BEZIER, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
 };
 
