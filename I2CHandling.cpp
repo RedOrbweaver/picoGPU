@@ -165,13 +165,13 @@ void HandleI2CWrite(SOURCE source, uint8_t address0, uint8_t address1, uint8_t l
 void I2CHandlerInternal()
 {
     
-    if(i2c_last_message != 0)
-    {
-        // uint64_t time_since_last_message = get_time_us() - i2c_last_message;
-        // if(time_since_last_message > 10000) // after 10ms reset the state
-        //     spi_state.state = SPI_STATE::NONE;
-    }
-    i2c_last_message = get_time_us();
+    // if(i2c_last_message != 0)
+    // {
+    //     // uint64_t time_since_last_message = get_time_us() - i2c_last_message;
+    //     // if(time_since_last_message > 10000) // after 10ms reset the state
+    //     //     spi_state.state = SPI_STATE::NONE;
+    // }
+    // i2c_last_message = get_time_us();
 
     uint8_t value = i2c0->hw->data_cmd & I2C_IC_DATA_CMD_BITS;
     
