@@ -36,7 +36,7 @@ enum class SOURCE : uint8_t
 constexpr int N_ENTITIES = 256;
 constexpr int TEXT_BUFFER_SIZE = 2048;
 constexpr int GEOMETRY_BUFFER_ELEMENT_SIZE = 4;
-constexpr int GEOMETRY_BUFFER_SIZE = 512;
+constexpr int GEOMETRY_BUFFER_SIZE = 1024;
 
 enum class FONT : uint8_t
 {

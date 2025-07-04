@@ -10,12 +10,12 @@ constexpr float FRONT_PORCH_NS = 1650.0f;
 constexpr float BACK_PORCH_NS = 5700.0f;
 constexpr float VISUAL_NS = 52000.0f;
 
-
-
 constexpr float SHORT_SYNC_LOW_NS = 2350.0f;
 constexpr float SHORT_SYNC_HIGH_NS = LINE_NS - SHORT_SYNC_LOW_NS;
 constexpr float LONG_SYNC_HIGH_NS = 4700.0f;
 constexpr float LONG_SYNC_LOW_NS = LINE_NS - LONG_SYNC_HIGH_NS;
+
+constexpr float CYCLES_PER_PIXEL = 1.0f;
 
 constexpr float CLOCK_LEN_NS = 3.333333f;
 
@@ -172,7 +172,6 @@ class PAL_DRIVER
     }
     void ComputeSendBuffer(int line)
     {
-        cmptm = get_time_us();
         if(smode == SAMPLING_MODE::SPP_1)
         {
             send_buffer = front_buffer + line*lines_x;
@@ -185,11 +184,6 @@ class PAL_DRIVER
                 send_buffer[i] = v;
             }
         }
-
-        cmptm = get_time_us() - cmptm;
-        cmptm_tot += cmptm;
-        if(cmptm > cmptm_max)
-            cmptm_max = cmptm;
     }
 
 
@@ -224,7 +218,7 @@ class PAL_DRIVER
 
     void ShortSync(int n)
     {
-        dac_write(zeroes, ArraySize(zeroes), div);
+        pio_sm_put_blocking(dac_pio, dac_sm, 0);
         for(int i = 0; i < n; i++)
         {
             pio_sm_put_blocking(sync_pio, sync_sm, 0);
@@ -235,7 +229,7 @@ class PAL_DRIVER
     }
     void LongSync(int n)
     {
-        dac_write(zeroes, ArraySize(zeroes), div);
+        pio_sm_put_blocking(dac_pio, dac_sm, 0);
         for(int i = 0; i < n; i++)
         {
             pio_sm_put_blocking(sync_pio, sync_sm, 0);
@@ -246,7 +240,7 @@ class PAL_DRIVER
     }
     void LineSync()
     {
-        dac_write(zeroes, ArraySize(zeroes), div);
+        pio_sm_put(dac_pio, dac_sm, 0);
         pio_sm_put(sync_pio, sync_sm, 1);
         pio_sm_get_blocking(sync_pio, sync_sm);
     }
@@ -309,43 +303,23 @@ class PAL_DRIVER
     {
         while(!stop)
         {
-            uint64_t tm;
-            uint64_t tmdif;
-
-            
-            tm = get_time_us();
-
             LongSync(5);
             ShortSync(5);
             mutex_enter_blocking(&non_blanking_mx);
             ComputeSendBuffer(0);
-            volatile uint64_t dif;
             for(int i = 0; i < lines_y; i++)
             {
                 LineSync();
-                volatile uint64_t start = get_time_us();
-                dac_write(send_buffer, send_buffer_size, line_div);
-
-                //sleep_us(52);       
+                dac_write(send_buffer, send_buffer_size, line_div);   
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
                 dma_channel_wait_for_finish_blocking(dmachan);
                 while(!pio_sm_is_tx_fifo_empty(dac_pio, dac_sm))
-                    tight_loop_contents();
-                dif = get_time_us()-start;
-                //printf("%i: %llu\n", i, dif);       
+                    tight_loop_contents();   
             }
             mutex_exit(&non_blanking_mx);
             ShortSync(6);
-            
-            tmdif = (get_time_us()-tm);
-
-            // double rtm = double(tmdif) / 1000.0;
-            // float average = float(cmptm_tot) / float(lines_y);
-            // printf("%.4f %lli %lli %lli %.3f\n", rtm, cmptm, cmptm_max, cmptm_tot, average);
-            cmptm_tot = 0;
-            cmptm_max = 0;
         }
     }
 
@@ -434,7 +408,7 @@ class PAL_DRIVER
         }
         send_buffer_size = lines_x*samples_per_pixel;
         send_buffer = new uint8_t[send_buffer_size];
-        line_div = ((VISUAL_NS/float(lines_x))/CLOCK_LEN_NS)/float(samples_per_pixel);
+        line_div = ((VISUAL_NS/float(lines_x))/CLOCK_LEN_NS)/float(samples_per_pixel)/CYCLES_PER_PIXEL;
         //line_div = 39.17550626808100;
     }
 };

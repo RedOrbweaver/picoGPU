@@ -169,8 +169,6 @@ int main()
 
     InitAll();
 
-    uint8_t* video_data = driver->GetBackBuffer();
-
     printf("Remaining memory: %i\n", GetFreeHeap());
 
     background.mode = BACKGROUND_MODE::SOLID_SHADE;

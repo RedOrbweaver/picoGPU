@@ -19,14 +19,14 @@ set x 28 side 0 [5] ; 60ns
 sync_loop:
 jmp x-- sync_loop side 0 [15] ; 4640 ns
 
-; back porch 5700ns (5720ns)
+; back porch 5700ns
 
-set x 29 side 1 ; 10 ns
+set x 29 side 1 [14]; 150 ns
 back_porch_loop:
-nop side 1 [2] ; 900ns
+nop side 1 [1] ; 600ns
 jmp x-- back_porch_loop side 1 [15] ; 4800ns
 
-jmp end side 1
+jmp end side 1 [14]; 150 ns
 
 vertical_sync:
 
