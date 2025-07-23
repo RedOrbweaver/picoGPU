@@ -3,7 +3,7 @@
 
 
 constexpr uint sysclockkhz = 300000;
-constexpr uint i2cspeed = 34 * 100 * 1000;
+constexpr uint i2cspeed = 30 * 100 * 1000;
 
 enum RENDER_MODE
 {

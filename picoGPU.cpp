@@ -149,7 +149,7 @@ void InitAll()
 
     mutex_init(&core1mx);
 
-    driver = new PAL_DRIVER(RENDER_MODE::BW_408_304_DOUBLE_BUF, SAMPLING_MODE::SPP_1);
+    driver = new PAL_DRIVER(RENDER_MODE::BW_408_305_DOUBLE_BUF_INTERLACED, SAMPLING_MODE::SPP_1);
 
     multicore_launch_core1(core1_entry);
 

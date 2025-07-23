@@ -9,6 +9,10 @@ mov x, osr side 1 ; 10 ns
 
 jmp !x vertical_sync side 1 ; 10 ns
 
+; set x 9 side 0
+; loop:
+; jmp x-- loop side 0 [9]
+
 ; front porch 1650 ns
 set x 14 side 1 [12] ; 130 ns
 front_porch_loop:
@@ -20,7 +24,6 @@ sync_loop:
 jmp x-- sync_loop side 0 [15] ; 4640 ns
 
 ; back porch 5700ns
-
 set x 29 side 1 [14]; 150 ns
 back_porch_loop:
 nop side 1 [1] ; 600ns

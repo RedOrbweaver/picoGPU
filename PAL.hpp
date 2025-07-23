@@ -11,9 +11,9 @@ constexpr float BACK_PORCH_NS = 5700.0f;
 constexpr float VISUAL_NS = 52000.0f;
 
 constexpr float SHORT_SYNC_LOW_NS = 2350.0f;
-constexpr float SHORT_SYNC_HIGH_NS = LINE_NS - SHORT_SYNC_LOW_NS;
+constexpr float SHORT_SYNC_HIGH_NS = (LINE_NS/2.0f) - SHORT_SYNC_LOW_NS;
 constexpr float LONG_SYNC_HIGH_NS = 4700.0f;
-constexpr float LONG_SYNC_LOW_NS = LINE_NS - LONG_SYNC_HIGH_NS;
+constexpr float LONG_SYNC_LOW_NS = (LINE_NS/2.0f) - LONG_SYNC_HIGH_NS;
 
 constexpr float CYCLES_PER_PIXEL = 1.0f;
 
@@ -52,12 +52,6 @@ class PAL_DRIVER
     int sync_sm;
 
     bool stop = false;
-
-
-
-    uint64_t cmptm = 0;
-    uint64_t cmptm_tot = 0;
-    uint64_t cmptm_max = 0;
 
     mutex_t non_blanking_mx;
 
@@ -104,7 +98,6 @@ class PAL_DRIVER
         sm_config_set_out_shift(&c, true, false, 32); // true - shift right, auto pull, # of bits
 
         sm_config_set_clkdiv(&c, divider);
-        //sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
 
         pio_sm_init(pio, sm, offset, &c);
         pio_sm_set_enabled(pio, sm, true);
@@ -251,6 +244,9 @@ class PAL_DRIVER
         {
             uint64_t tm;
             uint64_t tmdif;
+            uint64_t ltm;
+            uint64_t ltmdif;
+            uint64_t ttm, ttmdif;
 
             tm = get_time_us();
             
@@ -258,6 +254,7 @@ class PAL_DRIVER
             ShortSync(5);
             mutex_enter_blocking(&non_blanking_mx);
             ComputeSendBuffer(0);
+            ltm = get_time_us();
             for(int i = 0; i < lines_y; i++)
             {
                 LineSync();
@@ -269,13 +266,17 @@ class PAL_DRIVER
                 while(!pio_sm_is_tx_fifo_empty(dac_pio, dac_sm))
                     tight_loop_contents();
             }
+            ltmdif = get_time_us() - ltm;
             mutex_exit(&non_blanking_mx);
+            ttm = get_time_us();
             ShortSync(5);
             LongSync(5);
             ShortSync(4);
+            ttmdif = get_time_us()-ttm;
 
             mutex_enter_blocking(&non_blanking_mx);
             ComputeSendBuffer(0);
+            
             for(int i = 0; i < lines_y; i++)
             {
                 LineSync();
@@ -290,12 +291,11 @@ class PAL_DRIVER
             mutex_exit(&non_blanking_mx);
 
             ShortSync(6);
-            tmdif = (get_time_us()-tm);
-            double rtm = double(tmdif) / 1000.0;
-            float average = float(cmptm_tot) / float(lines_y);
-            printf("%.4f %lli %lli %lli %.3f\n", rtm, cmptm, cmptm_max, cmptm_tot, average);
-            cmptm_tot = 0;
-            cmptm_max = 0;
+            // tmdif = (get_time_us()-tm);
+            // double rtm = double(tmdif) / 1000.0;
+            // double rltm = double(ltmdif) / 1000.0f;
+            // double rttm = double(ttmdif) / 1000.0f;
+            // printf("%.4f %.4f, %.4f\n", rtm, rltm, rttm);
         }
     }
 
