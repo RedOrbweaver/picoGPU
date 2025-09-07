@@ -6,6 +6,7 @@
 void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2<int> pos, vec2<int> radius, uint8_t rotation, bool center)
 {
     int mx = std::max(radius.x, radius.y);
+    int mxsq = SQ(mx);
 
     if(!center)
     {
@@ -24,10 +25,10 @@ void DrawCircle(const ScreenContext& context, uint8_t border, uint8_t fill, vec2
             {
                 for(int ii = lmny; ii < lmxy; ii++)
                 {
-                    int dist = Distance(float(i), float(ii), float(pos.x), float(pos.y));
-                    if(dist <= mx)
+                    int dist = DistanceSQ(float(i), float(ii), float(pos.x), float(pos.y));
+                    if(dist <= mxsq)
                     {
-                        if(dist == mx || dist == mx-1)
+                        if(dist == mxsq || dist == mxsq-1)
                             SetPixel(context, border, {i, ii});
                         else 
                             SetPixel(context, fill, {i, ii});
