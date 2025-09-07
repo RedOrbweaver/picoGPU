@@ -67,7 +67,7 @@ class PAL_DRIVER
 
         pio_sm_config c = dac_out_program_get_default_config(offset); 
 
-        sm_config_set_out_shift(&c, true, true, 32); // true - shift right, auto pull, # of bits
+        sm_config_set_out_shift(&c, true, true, 8); // true - shift right, auto pull, # of bits
 
         sm_config_set_out_pins(&c, pin_base, PIN_COUNT);
 
@@ -95,8 +95,6 @@ class PAL_DRIVER
         sm_config_set_sideset(&c, 1, false, false);
         sm_config_set_sideset_pin_base(&c, pin_not_sync);
 
-        sm_config_set_out_shift(&c, true, false, 32); // true - shift right, auto pull, # of bits
-
         sm_config_set_clkdiv(&c, divider);
 
         pio_sm_init(pio, sm, offset, &c);
@@ -116,7 +114,7 @@ class PAL_DRIVER
         dmachan = dma_claim_unused_channel(true);    
 
         auto c = dma_channel_get_default_config(dmachan);
-        channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+        channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
         channel_config_set_read_increment(&c, true);
         channel_config_set_write_increment(&c, false);
         channel_config_set_dreq(&c, pio_get_dreq(pio, sm, true));
@@ -140,7 +138,7 @@ class PAL_DRIVER
         dac_pio = pio0;
         dac_sm = pio_claim_unused_sm(dac_pio, true);
         uint8_t offset = pio_add_program(dac_pio, &dac_out_program);
-        dac_program_init(dac_pio, dac_sm, offset, PIN::DAC_OUT[0], 1.0f);
+        dac_program_init(dac_pio, dac_sm, offset, PIN::DAC_OUT[0], line_div);
 
         sync_pio = pio0;
         sync_sm = pio_claim_unused_sm(sync_pio, true);
@@ -154,13 +152,9 @@ class PAL_DRIVER
         dma_init(dac_pio, dac_sm);
     }
 
-    void dac_write(uint8_t* data, uint len, float div)
+    void dac_write(uint8_t* data, uint len)
     {
-        assert(len % 4 == 0);
-
-        dma_channel_wait_for_finish_blocking(dmachan);
-        pio_sm_set_clkdiv(dac_pio, dac_sm, div);
-        dma_channel_set_trans_count(dmachan, len/4, false);
+        dma_channel_set_trans_count(dmachan, len, false);
         dma_channel_set_read_addr(dmachan, data, true);
     }
     void ComputeSendBuffer(int line)
@@ -258,7 +252,7 @@ class PAL_DRIVER
             for(int i = 0; i < lines_y; i++)
             {
                 LineSync();
-                dac_write(send_buffer, send_buffer_size, line_div);
+                dac_write(send_buffer, send_buffer_size);
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
@@ -280,7 +274,7 @@ class PAL_DRIVER
             for(int i = 0; i < lines_y; i++)
             {
                 LineSync();
-                dac_write(send_buffer, send_buffer_size, line_div);
+                dac_write(send_buffer, send_buffer_size);
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
@@ -310,7 +304,7 @@ class PAL_DRIVER
             for(int i = 0; i < lines_y; i++)
             {
                 LineSync();
-                dac_write(send_buffer, send_buffer_size, line_div);   
+                dac_write(send_buffer, send_buffer_size);   
 
                 if(i != lines_y-1)
                     ComputeSendBuffer(i+1);
