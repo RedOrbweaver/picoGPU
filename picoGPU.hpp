@@ -52,6 +52,16 @@ T Distance(vec2<T> a, vec2<T> b)
 {
     return Distance(a.x, a.y, b.x, b.y);
 }
+template<typename T>
+T DistanceSQ(T x0, T y0, T x1, T y1)
+{
+    return (SQ(x1-x0) + SQ(y1-y0));
+}
+template<typename T>
+T DistanceSQ(vec2<T> a, vec2<T> b)
+{
+    return DistanceSQ(a.x, a.y, b.x, b.y);
+}
 
 inline void SetPixel(const ScreenContext& context, uint8_t val, vec2<int> pos)
 {
