@@ -801,6 +801,34 @@ void DrawEntity(const Entity& entity, const ScreenContext& context)
             DrawBezier(context, vec2<int>{(int)entity.pos.x, (int)entity.pos.y}, color, geometry_buffer + start, end-start+1, entity.rotation);
             break;
         }
+        case ENTITY_TYPE::MULTI_SPRITE:
+        {
+            uint16_t start = *(uint16_t*)(entity.data + 11);
+            uint16_t end = *(uint16_t*)(entity.data + 13);
+            if(end < start)
+            {
+                printf("Geometry buffer start (%i) greater than end (%i)\n", (int)start, (int)end);
+                break;
+            }
+            if(end >= GEOMETRY_BUFFER_SIZE)
+            {
+                printf("Geometry buffer end out of range (%i)\n", (int)end);
+                break;
+            }
+            if(start > GEOMETRY_BUFFER_SIZE-2)
+            {
+                printf("Geometry buffer start out of range (%i)\n", (int)start);
+                break;
+            }
+            for(int i = start; i <= end; i++)
+            {
+                vec2<int> p = geometry_buffer[i];
+                DrawSprite(context, entity.pos.convert<int>() + p, entity.size.convert<int>(), entity.rotation, 
+                    *(uint32_t*)entity.data, *(uint32_t*)(entity.data + 4), entity.data[8],
+                    entity.data[9], entity.data[10]);
+            }
+            break;
+        }
 
         default:
         {

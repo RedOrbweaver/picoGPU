@@ -67,6 +67,7 @@ enum class ENTITY_TYPE : uint8_t
     MULTI_LINE, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
     MULTI_LINES, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
     BEZIER, // data: color, geometry buffer start (16 bit), geometry buffer end (16 bit)
+    MULTI_SPRITE, // data: buffer start(32 bit), buffer len(32 bit), center, use transparency, transparency value, geometry buffer start (16 bit), geometry buffer end (16 bit)
 };
 
 enum class SHAPE : uint8_t
